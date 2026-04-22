@@ -28,7 +28,7 @@
   "plugins": {
     "updater": {
       "endpoints": [
-        "https://github.com/mallmont/upcells/releases/latest/download/latest.json"
+        "https://github.com/leon-mallett/upcells/releases/latest/download/latest.json"
       ],
       "pubkey": ""
     }
