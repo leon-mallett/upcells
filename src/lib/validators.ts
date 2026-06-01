@@ -23,11 +23,7 @@ export type ConnectionFormValues = z.infer<typeof connectionSchema>;
 export const licenseKeySchema = z.object({
   license_key: z
     .string()
-    .min(10, "License key appears too short")
-    .regex(
-      /^[A-Z0-9]{4,6}(-[A-Z0-9]{4,6}){3,7}$/i,
-      "License key format should be XXXX-XXXX-XXXX-XXXX"
-    ),
+    .min(10, "License key appears too short"),
 });
 
 export type LicenseKeyFormValues = z.infer<typeof licenseKeySchema>;

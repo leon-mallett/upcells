@@ -177,8 +177,8 @@ export default function LicensePage({ onActivated }: Props) {
                   <Label htmlFor="license_key">License key</Label>
                   <Input
                     id="license_key"
-                    placeholder="XXXX-XXXX-XXXX-XXXX"
-                    className="font-mono tracking-wider"
+                    placeholder="Paste your licence key"
+                    className="font-mono text-xs"
                     {...register("license_key")}
                     autoFocus
                     disabled={!configured}
