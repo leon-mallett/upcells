@@ -149,7 +149,7 @@ Salesforce OAuth, query builder with related fields, export (xlsx/csv with pickl
 
 ### Known dependency advisories
 
-- **postcss 8.5.8** has a moderate XSS vulnerability (GHSA-qx2v-qp2m-jg93). Needs >=8.5.10. Deferred because the latest patch (8.5.15) was within the 72-hour freshness window at time of last audit (2026-05-22). Check if it's safe to update now.
+- **postcss** — _Resolved 2026-06-27._ Updated 8.5.8 → 8.5.15, clearing the moderate XSS advisory (GHSA-qx2v-qp2m-jg93). Same audit pass also cleared `vite` 6.4.2 → 6.4.3 (high, GHSA-v6wh / GHSA-fx2h) and `@babel/core` 7.29.0 → 7.29.7 (low, GHSA-4x5r). `npm audit` is clean. Note: `npm audit fix` rewrites the lockfile but can leave `node_modules` stale (and `npm audit` reads the lockfile, not disk) — re-run `npm ci` after a fix to actually sync installed files.
 
 <!-- SECURITY-MD-INTEGRATION-START -->
 ## Supply Chain Security Protocol

@@ -5,7 +5,6 @@ import {
   createRoute,
   createHashHistory,
   redirect,
-  Outlet,
 } from "@tanstack/react-router";
 import AppShell from "@/components/layout/AppShell";
 import DashboardPage from "./DashboardPage";
