@@ -67,7 +67,9 @@ src/
 - [ ] `inference/engine.rs`: in-process GGUF load, hardware-aware `resolve_n_ctx`, sampler loop, `AtomicBool` cancel
 - [ ] `inference/stream.rs`: per-conversation Tauri events (`chat:stream:{id}`), sanitise dotted segments
 - [ ] `inference/gpu.rs`: CPU backend now; Metal as `cfg(target_os="macos")` feature
-- [ ] Model catalogue (Qwen 3.5 4B default + larger options), hardware detection, 3-tier recommendation
+- [x] Model catalogue (Qwen 3.5 4B default + 1.7B/8B/Q5 + nomic-embed) + 3-tier recommendation (unit-tested)
+- [x] Hardware detection via `sysinfo` 0.32 (RAM/CPU/disk + Apple-unified GPU); verified on Apple M5 Max. NVIDIA (`nvml-wrapper`) + Vulkan (`ash`) VRAM deferred to step 2c (Windows/Linux)
+- [x] Commands wired: `get_ai_hardware_info`, `list_ai_models`, `recommend_ai_model`
 - [ ] Resumable, SHA-256-verified downloader with friendly first-run modal
 - [ ] License tier scaffolding: Keygen policy + entitlement, `adminMode`-style feature flag
 - [ ] Proof point: load 4B model, stream tokens into a React panel

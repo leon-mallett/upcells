@@ -1,4 +1,5 @@
 pub mod admin;
+pub mod assistant;
 pub mod connections;
 pub mod export;
 pub mod license;
@@ -6,6 +7,7 @@ pub mod queries;
 pub mod sync;
 
 pub use admin::*;
+pub use assistant::*;
 pub use connections::*;
 pub use export::*;
 pub use license::*;

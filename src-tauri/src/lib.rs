@@ -69,6 +69,10 @@ pub fn run() {
             commands::compute_sync_diff,
             commands::execute_sync,
             commands::list_sync_history,
+            // Sales Accelerator (local AI)
+            commands::get_ai_hardware_info,
+            commands::list_ai_models,
+            commands::recommend_ai_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Upcells");
