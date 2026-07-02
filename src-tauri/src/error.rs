@@ -41,6 +41,10 @@ impl AppError {
     pub fn validation(message: impl ToString) -> Self {
         Self::new("VALIDATION_ERROR", message)
     }
+
+    pub fn inference(message: impl ToString) -> Self {
+        Self::new("INFERENCE_ERROR", message)
+    }
 }
 
 impl std::fmt::Display for AppError {

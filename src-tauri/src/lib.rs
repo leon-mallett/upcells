@@ -3,6 +3,7 @@ mod db;
 mod error;
 mod export;
 mod import;
+mod inference;
 mod keychain;
 mod license;
 mod salesforce;
