@@ -64,9 +64,9 @@ src/
 
 ### Phase 0 — Inference foundation
 - [x] `SECURITY.md` vetting pass (2026-07-02) — see Dependency status; deps to add: `llama-cpp-2` 0.1.150, `sysinfo` 0.32, `nvml-wrapper` 0.12, `ash` 0.38, `tokio-util` 0.7, `futures-util` 0.3 (`hf-hub` dropped)
-- [ ] `inference/engine.rs`: in-process GGUF load, hardware-aware `resolve_n_ctx`, sampler loop, `AtomicBool` cancel
-- [ ] `inference/stream.rs`: per-conversation Tauri events (`chat:stream:{id}`), sanitise dotted segments
-- [ ] `inference/gpu.rs`: CPU backend now; Metal as `cfg(target_os="macos")` feature
+- [x] `inference/engine.rs`: `llama-cpp-2` 0.1.150 — in-process GGUF load, sampler chain (greedy/temp), `AtomicBool` cancel, incremental UTF-8 token streaming via `on_token`. **Verified end-to-end** (loaded Qwen3.5 4B via Metal, generated correct output). `resolve_n_ctx` implemented (not yet wired to hardware). GPU offload folded into `engine.rs::default_gpu_layers` + `hardware.rs` (no separate `gpu.rs`).
+- [x] `inference/stream.rs`: per-conversation Tauri event names + dotted-segment sanitisation (unit-tested)
+- [ ] **Step 2b-ii:** bridge `generate`'s `on_token` to Tauri stream events in an async command; hold `InferenceEngine` in managed state; wire `resolve_n_ctx` to `hardware`
 - [x] Model catalogue (Qwen 3.5 4B default + 1.7B/8B/Q5 + nomic-embed) + 3-tier recommendation (unit-tested)
 - [x] Hardware detection via `sysinfo` 0.32 (RAM/CPU/disk + Apple-unified GPU); verified on Apple M5 Max. NVIDIA (`nvml-wrapper`) + Vulkan (`ash`) VRAM deferred to step 2c (Windows/Linux)
 - [x] Commands wired: `get_ai_hardware_info`, `list_ai_models`, `recommend_ai_model`
