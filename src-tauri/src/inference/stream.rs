@@ -18,6 +18,13 @@ pub struct StreamChunk {
     pub done: bool,
 }
 
+/// Terminal payload for `chat:complete:{id}` — the fully assembled message.
+#[derive(Debug, Clone, Serialize)]
+pub struct GenerationComplete {
+    pub message_id: String,
+    pub text: String,
+}
+
 /// Replace any character that isn't `[A-Za-z0-9_-]` with `_`, so a dynamic id is safe to
 /// embed in a Tauri event name.
 pub fn sanitise_segment(segment: &str) -> String {

@@ -28,6 +28,7 @@ pub fn run() {
             let db_conn = db::open(&data_dir).expect("failed to open database");
             app.manage(db_conn);
             app.manage(OAuthCancelHandle::default());
+            app.manage(std::sync::Arc::new(commands::AiState::default()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -73,6 +74,9 @@ pub fn run() {
             commands::get_ai_hardware_info,
             commands::list_ai_models,
             commands::recommend_ai_model,
+            commands::load_ai_model,
+            commands::generate_ai,
+            commands::cancel_ai_generation,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Upcells");
