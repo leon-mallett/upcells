@@ -74,6 +74,8 @@ pub fn run() {
             commands::get_ai_hardware_info,
             commands::list_ai_models,
             commands::recommend_ai_model,
+            commands::download_ai_model,
+            commands::cancel_ai_download,
             commands::load_ai_model,
             commands::generate_ai,
             commands::cancel_ai_generation,
