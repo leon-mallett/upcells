@@ -101,6 +101,15 @@ impl InferenceEngine {
             .unwrap_or(false)
     }
 
+    /// The id of the currently-loaded model, if any (used to pick model-specific prompt
+    /// handling, e.g. the qwen3 think-prefill).
+    pub fn loaded_model_id(&self) -> Option<String> {
+        self.model
+            .lock()
+            .ok()
+            .and_then(|m| m.as_ref().map(|l| l.id.clone()))
+    }
+
     /// Load a GGUF model into the warm slot, replacing any currently-loaded model. On Apple
     /// Silicon / GPU builds `n_gpu_layers = 999` offloads every layer; on CPU builds it is 0.
     pub fn load_model(&self, id: &str, path: &Path) -> AppResult<()> {

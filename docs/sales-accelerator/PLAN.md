@@ -70,7 +70,7 @@ src/
 - [x] Model catalogue (Qwen 3.5 4B default + 1.7B/8B/Q5 + nomic-embed) + 3-tier recommendation (unit-tested)
 - [x] Hardware detection via `sysinfo` 0.32 (RAM/CPU/disk + Apple-unified GPU); verified on Apple M5 Max. NVIDIA (`nvml-wrapper`) + Vulkan (`ash`) VRAM deferred to step 2c (Windows/Linux)
 - [x] Commands wired: `get_ai_hardware_info`, `list_ai_models`, `recommend_ai_model`
-- [x] Resumable, SHA-256-verified downloader (`reqwest`, `Range` resume, atomic rename, cancel) + `download_ai_model`/`cancel_ai_download` commands streaming `model:download:{id}` progress. Real network path verified. **⚠️ catalogue HF repo/file/sha256 are still PLACEHOLDERS — need real coordinates from Ragtag before production models can be fetched.** Friendly first-run modal is UI (later).
+- [x] Resumable, SHA-256-verified downloader (`reqwest`, `Range` resume, atomic rename, cancel) + `download_ai_model`/`cancel_ai_download` commands streaming `model:download:{id}` progress. Real network path verified. **Catalogue now has real Ragtag coordinates** (Qwen3.5 4B default `bartowski/Qwen_Qwen3.5-4B-GGUF` Q5_K_M → 9B → 27B → 35B-A3B MoE, all Apache 2.0; nomic-embed for RAG; HF `resolve/main`, no sha pins). Friendly first-run modal is UI (later).
 - [ ] License tier scaffolding: Keygen policy + entitlement, `adminMode`-style feature flag
 - [ ] Proof point: load 4B model, stream tokens into a React panel
 

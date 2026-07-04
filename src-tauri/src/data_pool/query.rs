@@ -21,6 +21,19 @@ const MAX_ATTEMPTS: usize = 2;
 /// Rows of the result shown to the narration pass.
 const NARRATION_PREVIEW_ROWS: usize = 30;
 
+/// Qwen3.x emits `<think>…</think>` reasoning. Prefilling a closed, empty block makes the
+/// model spend **zero** tokens reasoning — critical on weak CPUs where thinking can exhaust
+/// the generation budget before any answer appears (Ragtag's primary control; our
+/// `strip_reasoning` stays as a belt-and-braces fallback). Detection: model id has "qwen3".
+const THINK_PREFILL: &str = "\n<think>\n\n</think>\n\n";
+
+fn with_think_prefill(engine: &InferenceEngine, prompt: String) -> String {
+    match engine.loaded_model_id() {
+        Some(id) if id.contains("qwen3") => format!("{prompt}{THINK_PREFILL}"),
+        _ => prompt,
+    }
+}
+
 /// The result of answering a question: the generated SQL plus the rows it produced (as text),
 /// so the UI can show exactly what was computed (§1.7 — auditable).
 #[derive(Debug, Clone, Serialize)]
@@ -42,7 +55,8 @@ pub fn answer_question(
 ) -> AppResult<QueryResult> {
     let mut prev_error: Option<String> = None;
     for _ in 0..MAX_ATTEMPTS {
-        let prompt = build_sql_prompt(schema, question, prev_error.as_deref());
+        let prompt =
+            with_think_prefill(engine, build_sql_prompt(schema, question, prev_error.as_deref()));
         let raw = engine.generate(&prompt, &GenerationParams::deterministic_sql(), |_| {})?;
         let sql = extract_sql(&raw);
 
@@ -114,9 +128,10 @@ pub fn narrate(engine: &InferenceEngine, question: &str, result: &QueryResult) -
          Answer in plain English using ONLY the figures in the result above. Every value you \
          state MUST appear in the result. Do not add analysis and do not show SQL.\n\nAnswer:"
     );
-    // Reasoning models (Qwen3.5) spend tokens in <think> blocks — give room, then strip.
+    // Reasoning models (Qwen3.5) spend tokens in <think> blocks — prefill an empty block so
+    // the whole budget goes to the answer; strip as a fallback.
     let params = GenerationParams { temperature: 0.3, max_tokens: 512, ..Default::default() };
-    let raw = engine.generate(&prompt, &params, |_| {})?;
+    let raw = engine.generate(&with_think_prefill(engine, prompt), &params, |_| {})?;
     let text = strip_reasoning(&raw);
     if text.is_empty() {
         Ok("Here's what your data shows.".to_string())
@@ -352,7 +367,10 @@ mod tests {
         let pool = seed_pool();
         let schema = capture_schema(&pool).unwrap();
         let engine = InferenceEngine::new().expect("engine");
-        engine.load_model("smoke", std::path::Path::new(&path)).expect("load");
+        // Load with a qwen3 id so the think-prefill path is exercised.
+        engine
+            .load_model("qwen3.5-4b-q5_k_m", std::path::Path::new(&path))
+            .expect("load");
 
         let result = answer_question(&engine, &pool, &schema, "What is the total amount for the UK?")
             .expect("answer");

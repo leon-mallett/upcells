@@ -4,9 +4,10 @@
 //! them to one their hardware can run. Stable `id`s are load-bearing — they key downloads,
 //! event names and settings, so **never rename an `id`**.
 //!
-//! TODO(phase0): the Hugging Face repo/file names, byte sizes, `kv_bytes_per_token`, and
-//! `sha256` pins below are PLACEHOLDERS. Confirm exact values against Ragtag's real
-//! `inference/model_registry.rs` before wiring the downloader.
+//! Coordinates (HF repo/file, byte sizes, `kv_bytes_per_token`, RAM/VRAM) are the real values
+//! from Ragtag's `inference/model_registry.rs` (2026-07). All GGUFs resolve via HF
+//! `resolve/main`, so `sha256`/`download_url` are `None`. The tier is Apache-2.0 only (Qwen)
+//! for a clean commercial licence story; Ragtag's Llama alternates are omitted here.
 
 use serde::Serialize;
 
@@ -20,6 +21,8 @@ pub enum ModelKind {
 }
 
 /// Rough capability bucket, used to offer one candidate per class when recommending.
+/// Capability order: `Small < Mid < Large < Moe < XLarge` (Moe sits above dense Large —
+/// faster at similar capability — but below XLarge).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum SizeClass {
@@ -40,7 +43,7 @@ pub struct ModelEntry {
     pub kind: ModelKind,
     pub hugging_face_repo: &'static str,
     pub hugging_face_file: &'static str,
-    /// Download size in bytes, shown before download.
+    /// Download size in bytes, shown before download (equals `disk_footprint_bytes`).
     pub approximate_size_bytes: u64,
     /// Trained context length in tokens.
     pub context_length: u32,
@@ -68,130 +71,154 @@ pub struct ModelEntry {
     pub download_url: Option<&'static str>,
 }
 
-const GB: u64 = 1024 * 1024 * 1024;
+const GIB: u64 = 1024 * 1024 * 1024;
 
-/// The default chat model — proven in Ragtag. See [`crate::inference::recommend`] for how a
-/// more capable model is offered when the machine can handle it.
-pub const DEFAULT_CHAT_MODEL_ID: &str = "qwen3.5-4b-q4_k_m";
+/// The default/fallback chat model — Qwen3.5 4B, default quant Q5_K_M. The recommender
+/// upgrades to the most capable size class that fits the machine.
+pub const DEFAULT_CHAT_MODEL_ID: &str = "qwen3.5-4b-q5_k_m";
 
-/// The curated catalogue. Keep it small: a few chat sizes + one embedding model.
+/// The curated catalogue. Chat sizes span Small→Moe; one embedding model for RAG (Phase 4).
 pub const CATALOGUE: &[ModelEntry] = &[
-    // ── Chat: low-end fallback ────────────────────────────────────────────────
-    ModelEntry {
-        id: "qwen3.5-1.7b-q4_k_m",
-        display_name: "Qwen 3.5 1.7B",
-        description: "Smallest chat model — for low-spec machines. Faster, less capable.",
-        kind: ModelKind::Chat,
-        hugging_face_repo: "Qwen/Qwen3.5-1.7B-GGUF",
-        hugging_face_file: "Qwen3.5-1.7B-Q4_K_M.gguf",
-        approximate_size_bytes: 1_100 * 1024 * 1024,
-        context_length: 32_768,
-        licence: "Apache-2.0",
-        size_class: SizeClass::Small,
-        family: "qwen3.5-1.7b",
-        quant_label: "Q4_K_M",
-        is_default_quant: true,
-        kv_bytes_per_token: 112 * 1024,
-        parameters: "1.7B",
-        min_ram_bytes: 3 * GB,
-        recommended_ram_bytes: 4 * GB,
-        recommended_vram_bytes: 0,
-        disk_footprint_bytes: 1_100 * 1024 * 1024,
-        sha256: None,
-        download_url: None,
-    },
-    // ── Chat: default (Qwen 3.5 4B), two quant variants in one family ─────────
-    ModelEntry {
-        id: "qwen3.5-4b-q4_k_m",
-        display_name: "Qwen 3.5 4B",
-        description: "Default. Best balance of quality and speed on a typical laptop.",
-        kind: ModelKind::Chat,
-        hugging_face_repo: "Qwen/Qwen3.5-4B-GGUF",
-        hugging_face_file: "Qwen3.5-4B-Q4_K_M.gguf",
-        approximate_size_bytes: 2_500 * 1024 * 1024,
-        context_length: 32_768,
-        licence: "Apache-2.0",
-        size_class: SizeClass::Mid,
-        family: "qwen3.5-4b",
-        quant_label: "Q4_K_M",
-        is_default_quant: true,
-        kv_bytes_per_token: 256 * 1024,
-        parameters: "4B",
-        min_ram_bytes: 6 * GB,
-        recommended_ram_bytes: 8 * GB,
-        recommended_vram_bytes: 0,
-        disk_footprint_bytes: 2_500 * 1024 * 1024,
-        sha256: None,
-        download_url: None,
-    },
+    // ── Qwen3.5 4B — the default (Small) ──────────────────────────────────────
     ModelEntry {
         id: "qwen3.5-4b-q5_k_m",
-        display_name: "Qwen 3.5 4B (higher quality)",
-        description: "Q5 quant of the 4B — slightly better quality, a little larger/slower.",
+        display_name: "Qwen3.5 4B",
+        description: "Default. Best balance of quality and speed on a typical laptop.",
         kind: ModelKind::Chat,
-        hugging_face_repo: "Qwen/Qwen3.5-4B-GGUF",
-        hugging_face_file: "Qwen3.5-4B-Q5_K_M.gguf",
-        approximate_size_bytes: 2_900 * 1024 * 1024,
-        context_length: 32_768,
-        licence: "Apache-2.0",
-        size_class: SizeClass::Mid,
+        hugging_face_repo: "bartowski/Qwen_Qwen3.5-4B-GGUF",
+        hugging_face_file: "Qwen_Qwen3.5-4B-Q5_K_M.gguf",
+        approximate_size_bytes: 3_443_763_168,
+        context_length: 262_144,
+        licence: "Apache 2.0",
+        size_class: SizeClass::Small,
         family: "qwen3.5-4b",
         quant_label: "Q5_K_M",
-        is_default_quant: false,
-        kv_bytes_per_token: 256 * 1024,
+        is_default_quant: true,
+        kv_bytes_per_token: 135_168,
         parameters: "4B",
-        min_ram_bytes: 6 * GB,
-        recommended_ram_bytes: 9 * GB,
-        recommended_vram_bytes: 0,
-        disk_footprint_bytes: 2_900 * 1024 * 1024,
+        min_ram_bytes: 6 * GIB,
+        recommended_ram_bytes: 8 * GIB,
+        recommended_vram_bytes: 6 * GIB,
+        disk_footprint_bytes: 3_443_763_168,
         sha256: None,
         download_url: None,
     },
-    // ── Chat: for capable machines ────────────────────────────────────────────
     ModelEntry {
-        id: "qwen3.5-8b-q4_k_m",
-        display_name: "Qwen 3.5 8B",
-        description: "More capable — for machines with plenty of RAM/VRAM. Slower.",
+        id: "qwen3.5-4b-q6_k",
+        display_name: "Qwen3.5 4B (higher quality)",
+        description: "Q6_K quant of the 4B — slightly better quality, a little larger.",
         kind: ModelKind::Chat,
-        hugging_face_repo: "Qwen/Qwen3.5-8B-GGUF",
-        hugging_face_file: "Qwen3.5-8B-Q4_K_M.gguf",
-        approximate_size_bytes: 4_900 * 1024 * 1024,
-        context_length: 32_768,
-        licence: "Apache-2.0",
-        size_class: SizeClass::Large,
-        family: "qwen3.5-8b",
+        hugging_face_repo: "bartowski/Qwen_Qwen3.5-4B-GGUF",
+        hugging_face_file: "Qwen_Qwen3.5-4B-Q6_K.gguf",
+        approximate_size_bytes: 3_805_358_048,
+        context_length: 262_144,
+        licence: "Apache 2.0",
+        size_class: SizeClass::Small,
+        family: "qwen3.5-4b",
+        quant_label: "Q6_K",
+        is_default_quant: false,
+        kv_bytes_per_token: 135_168,
+        parameters: "4B",
+        min_ram_bytes: 6 * GIB,
+        recommended_ram_bytes: 8 * GIB,
+        recommended_vram_bytes: 6 * GIB,
+        disk_footprint_bytes: 3_805_358_048,
+        sha256: None,
+        download_url: None,
+    },
+    // ── Qwen3.5 9B (Mid) ──────────────────────────────────────────────────────
+    ModelEntry {
+        id: "qwen3.5-9b-q4_k_m",
+        display_name: "Qwen3.5 9B",
+        description: "More capable — for machines with 16 GB+ RAM.",
+        kind: ModelKind::Chat,
+        hugging_face_repo: "bartowski/Qwen_Qwen3.5-9B-GGUF",
+        hugging_face_file: "Qwen_Qwen3.5-9B-Q4_K_M.gguf",
+        approximate_size_bytes: 6_169_341_984,
+        context_length: 262_144,
+        licence: "Apache 2.0",
+        size_class: SizeClass::Mid,
+        family: "qwen3.5-9b",
         quant_label: "Q4_K_M",
         is_default_quant: true,
-        kv_bytes_per_token: 512 * 1024,
-        parameters: "8B",
-        min_ram_bytes: 10 * GB,
-        recommended_ram_bytes: 16 * GB,
-        recommended_vram_bytes: 8 * GB,
-        disk_footprint_bytes: 4_900 * 1024 * 1024,
+        kv_bytes_per_token: 135_168,
+        parameters: "9B",
+        min_ram_bytes: 8 * GIB,
+        recommended_ram_bytes: 16 * GIB,
+        recommended_vram_bytes: 8 * GIB,
+        disk_footprint_bytes: 6_169_341_984,
         sha256: None,
         download_url: None,
     },
-    // ── Embedding (Phase 4 RAG) ───────────────────────────────────────────────
+    // ── Qwen3.6 27B (Large) ───────────────────────────────────────────────────
     ModelEntry {
-        id: "nomic-embed-text-v1.5-q8_0",
+        id: "qwen3.6-27b-q4_k_m",
+        display_name: "Qwen3.6 27B",
+        description: "High quality — needs a workstation (32 GB+ RAM). Slower.",
+        kind: ModelKind::Chat,
+        hugging_face_repo: "bartowski/Qwen_Qwen3.6-27B-GGUF",
+        hugging_face_file: "Qwen_Qwen3.6-27B-Q4_K_M.gguf",
+        approximate_size_bytes: 17_984_872_960,
+        context_length: 262_144,
+        licence: "Apache 2.0",
+        size_class: SizeClass::Large,
+        family: "qwen3.6-27b",
+        quant_label: "Q4_K_M",
+        is_default_quant: true,
+        kv_bytes_per_token: 266_240,
+        parameters: "27B",
+        min_ram_bytes: 24 * GIB,
+        recommended_ram_bytes: 32 * GIB,
+        recommended_vram_bytes: 20 * GIB,
+        disk_footprint_bytes: 17_984_872_960,
+        sha256: None,
+        download_url: None,
+    },
+    // ── Qwen3.6 35B-A3B — Mixture-of-Experts (Moe): 35B total / 3B active ──────
+    ModelEntry {
+        id: "qwen3.6-35b-a3b-q4_k_m",
+        display_name: "Qwen3.6 35B-A3B (MoE)",
+        description: "Mixture-of-Experts — top quality, much faster than dense 27B if it fits.",
+        kind: ModelKind::Chat,
+        hugging_face_repo: "bartowski/Qwen_Qwen3.6-35B-A3B-GGUF",
+        hugging_face_file: "Qwen_Qwen3.6-35B-A3B-Q4_K_M.gguf",
+        approximate_size_bytes: 22_285_080_192,
+        context_length: 262_144,
+        licence: "Apache 2.0",
+        size_class: SizeClass::Moe,
+        family: "qwen3.6-35b-a3b",
+        quant_label: "Q4_K_M",
+        is_default_quant: true,
+        kv_bytes_per_token: 83_968,
+        parameters: "35B (3B active)",
+        min_ram_bytes: 26 * GIB,
+        recommended_ram_bytes: 32 * GIB,
+        recommended_vram_bytes: 24 * GIB,
+        disk_footprint_bytes: 22_285_080_192,
+        sha256: None,
+        download_url: None,
+    },
+    // ── Embedding (Phase 4 RAG) — 768-dim; vector table width depends on this ──
+    ModelEntry {
+        id: "nomic-embed-text-v1.5-q8",
         display_name: "Nomic Embed Text v1.5",
         description: "768-dim embedding model for semantic RAG over unstructured docs.",
         kind: ModelKind::Embedding,
         hugging_face_repo: "nomic-ai/nomic-embed-text-v1.5-GGUF",
         hugging_face_file: "nomic-embed-text-v1.5.Q8_0.gguf",
-        approximate_size_bytes: 140 * 1024 * 1024,
-        context_length: 2_048,
-        licence: "Apache-2.0",
+        approximate_size_bytes: 146_500_000,
+        context_length: 8_192,
+        licence: "Apache 2.0",
         size_class: SizeClass::Small,
         family: "nomic-embed-text-v1.5",
         quant_label: "Q8_0",
         is_default_quant: true,
         kv_bytes_per_token: 0,
         parameters: "137M",
-        min_ram_bytes: 1 * GB,
-        recommended_ram_bytes: 2 * GB,
+        min_ram_bytes: 2 * GIB,
+        recommended_ram_bytes: 4 * GIB,
         recommended_vram_bytes: 0,
-        disk_footprint_bytes: 140 * 1024 * 1024,
+        disk_footprint_bytes: 146_500_000,
         sha256: None,
         download_url: None,
     },

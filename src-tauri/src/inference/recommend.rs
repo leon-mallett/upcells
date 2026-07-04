@@ -140,30 +140,32 @@ mod tests {
 
     #[test]
     fn high_ram_gets_a_larger_model_comfortably() {
+        // 32 GB comfortably fits the 27B (recommended 32 GB).
         let r = recommend_chat(&hw(32, 100, no_gpu()));
         assert_eq!(r.tier, Tier::Comfortable);
-        assert_eq!(r.model_id, "qwen3.5-8b-q4_k_m");
+        assert_eq!(r.model_id, "qwen3.6-27b-q4_k_m");
     }
 
     #[test]
     fn typical_laptop_gets_the_default_4b() {
         let r = recommend_chat(&hw(8, 50, no_gpu()));
         assert_eq!(r.tier, Tier::Comfortable);
-        assert_eq!(r.model_id, "qwen3.5-4b-q4_k_m");
+        assert_eq!(r.model_id, "qwen3.5-4b-q5_k_m");
     }
 
     #[test]
     fn low_ram_falls_back_to_smallest() {
-        let r = recommend_chat(&hw(2, 50, no_gpu()));
+        // Below the 4B's 6 GB minimum → fallback to the smallest model with a caveat.
+        let r = recommend_chat(&hw(4, 50, no_gpu()));
         assert_eq!(r.tier, Tier::Fallback);
-        assert_eq!(r.model_id, "qwen3.5-1.7b-q4_k_m");
+        assert_eq!(r.model_id, "qwen3.5-4b-q5_k_m");
     }
 
     #[test]
     fn tiny_disk_blocks_large_model_despite_ram() {
-        // Plenty of RAM but not enough free disk for the 8B → step down.
-        let r = recommend_chat(&hw(32, 3, no_gpu()));
-        assert_ne!(r.model_id, "qwen3.5-8b-q4_k_m");
+        // 32 GB RAM but only 10 GB free disk: the 27B (~17 GB) won't fit → step down to 9B.
+        let r = recommend_chat(&hw(32, 10, no_gpu()));
+        assert_eq!(r.model_id, "qwen3.5-9b-q4_k_m");
     }
 
     #[test]
