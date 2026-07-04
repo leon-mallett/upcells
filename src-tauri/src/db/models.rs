@@ -1,5 +1,17 @@
 use serde::{Deserialize, Serialize};
 
+/// Metadata for a data pool (a `{id}.duckdb` file under `app_data_dir/pools`).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct DataPool {
+    pub id: String,
+    pub name: String,
+    pub table_name: String,
+    pub source_file: Option<String>,
+    pub row_count: i64,
+    pub columns: Vec<String>,
+    pub created_at: i64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Connection {
     pub id: String,

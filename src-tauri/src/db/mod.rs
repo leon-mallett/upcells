@@ -6,8 +6,12 @@ use std::sync::{Arc, Mutex};
 
 pub type DbConnection = Arc<Mutex<Connection>>;
 
-const MIGRATION_SQL: &str = include_str!("migrations/001_initial.sql");
-const CURRENT_VERSION: i64 = 1;
+/// Ordered schema migrations. Each runs once, in order, when the DB is below its version.
+/// Migration 001 creates `schema_migrations` itself (the version query falls back to 0).
+const MIGRATIONS: &[(i64, &str)] = &[
+    (1, include_str!("migrations/001_initial.sql")),
+    (2, include_str!("migrations/002_data_pools.sql")),
+];
 
 pub fn open(data_dir: &Path) -> SqlResult<DbConnection> {
     std::fs::create_dir_all(data_dir).ok();
@@ -42,7 +46,7 @@ fn cleanup_interrupted_syncs(conn: &Connection) -> SqlResult<()> {
 }
 
 fn run_migrations(conn: &Connection) -> SqlResult<()> {
-    // Check current schema version
+    // Current schema version (0 before the first migration creates the tracking table).
     let version: i64 = conn
         .query_row(
             "SELECT COALESCE(MAX(version), 0) FROM schema_migrations",
@@ -51,12 +55,14 @@ fn run_migrations(conn: &Connection) -> SqlResult<()> {
         )
         .unwrap_or(0);
 
-    if version < CURRENT_VERSION {
-        conn.execute_batch(MIGRATION_SQL)?;
-        conn.execute(
-            "INSERT OR REPLACE INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",
-            rusqlite::params![CURRENT_VERSION, chrono::Utc::now().timestamp()],
-        )?;
+    for (target, sql) in MIGRATIONS {
+        if version < *target {
+            conn.execute_batch(sql)?;
+            conn.execute(
+                "INSERT OR REPLACE INTO schema_migrations (version, applied_at) VALUES (?1, ?2)",
+                rusqlite::params![target, chrono::Utc::now().timestamp()],
+            )?;
+        }
     }
 
     Ok(())

@@ -80,6 +80,11 @@ pub fn run() {
             commands::load_ai_model,
             commands::generate_ai,
             commands::cancel_ai_generation,
+            // Data pools (text-to-SQL)
+            commands::create_data_pool,
+            commands::list_data_pools,
+            commands::delete_data_pool,
+            commands::ask_data_pool,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Upcells");

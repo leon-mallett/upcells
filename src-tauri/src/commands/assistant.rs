@@ -3,11 +3,19 @@
 //! Phase 0: hardware detection + catalogue + recommendation are live. Inference/generation
 //! commands arrive with the engine (step 2b).
 
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
+use crate::data_pool::import::{import_csv, import_xlsx};
+use crate::data_pool::query::{answer_question, narrate};
+use crate::data_pool::schema::capture_schema;
+use crate::data_pool::{self};
+use crate::db::models::DataPool;
+use crate::db::DbConnection;
 use crate::error::{AppError, AppResult};
 use crate::inference::engine::{GenerationParams, InferenceEngine};
 use crate::inference::hardware::{self, HardwareInfo};
@@ -184,4 +192,182 @@ pub fn cancel_ai_generation(state: State<'_, Arc<AiState>>) {
     if let Some(engine) = state.current() {
         engine.cancel();
     }
+}
+
+// ── Data pools ───────────────────────────────────────────────────────────────
+
+/// Where pool DuckDB files live.
+fn pools_dir(app: &AppHandle) -> AppResult<PathBuf> {
+    let dir = app
+        .path()
+        .app_data_dir()
+        .map_err(|e| AppError::io(format!("app data dir unavailable: {e}")))?;
+    Ok(dir.join("pools"))
+}
+
+/// A text-to-SQL answer: the plain-English answer plus the SQL and result rows behind it,
+/// so the UI can show exactly how the number was computed (auditable).
+#[derive(Debug, Clone, Serialize)]
+pub struct PoolAnswer {
+    pub sql: String,
+    pub columns: Vec<String>,
+    pub rows: Vec<Vec<String>>,
+    pub truncated: bool,
+    pub answer: String,
+}
+
+/// Create a data pool by importing a CSV/XLSX file into a new DuckDB database.
+#[tauri::command]
+pub async fn create_data_pool(
+    app: AppHandle,
+    db: State<'_, DbConnection>,
+    name: String,
+    file_path: String,
+) -> Result<DataPool, AppError> {
+    let id = uuid::Uuid::new_v4().to_string();
+    let pools = pools_dir(&app)?;
+    std::fs::create_dir_all(&pools)
+        .map_err(|e| AppError::io(format!("failed to create pools dir: {e}")))?;
+    let pool_db = data_pool::pool_path(&pools, &id);
+
+    let table = name.clone();
+    let src = file_path.clone();
+    let pool_db_for_task = pool_db.clone();
+    let summary = tokio::task::spawn_blocking(move || {
+        let path = std::path::Path::new(&src);
+        let ext = path
+            .extension()
+            .and_then(|e| e.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        match ext.as_str() {
+            "csv" => import_csv(&pool_db_for_task, &table, path),
+            "xlsx" | "xls" | "xlsm" => import_xlsx(&pool_db_for_task, &table, path),
+            _ => Err(AppError::validation("unsupported file type — use .csv or .xlsx")),
+        }
+    })
+    .await
+    .map_err(|e| AppError::inference(format!("import task failed: {e}")))??;
+
+    let created_at = chrono::Utc::now().timestamp();
+    let columns_json = serde_json::to_string(&summary.columns).unwrap_or_else(|_| "[]".into());
+    {
+        let conn = db.lock().map_err(|_| AppError::db("DB lock poisoned"))?;
+        conn.execute(
+            "INSERT INTO data_pools \
+             (id, name, table_name, source_file, row_count, columns_json, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![
+                id,
+                name,
+                summary.table,
+                file_path,
+                summary.row_count as i64,
+                columns_json,
+                created_at
+            ],
+        )
+        .map_err(|e| AppError::db(format!("failed to save pool: {e}")))?;
+    }
+
+    Ok(DataPool {
+        id,
+        name,
+        table_name: summary.table,
+        source_file: Some(file_path),
+        row_count: summary.row_count as i64,
+        columns: summary.columns,
+        created_at,
+    })
+}
+
+/// List all data pools, newest first.
+#[tauri::command]
+pub async fn list_data_pools(db: State<'_, DbConnection>) -> Result<Vec<DataPool>, AppError> {
+    let conn = db.lock().map_err(|_| AppError::db("DB lock poisoned"))?;
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, name, table_name, source_file, row_count, columns_json, created_at \
+             FROM data_pools ORDER BY created_at DESC",
+        )
+        .map_err(|e| AppError::db(format!("failed to list pools: {e}")))?;
+    let rows = stmt
+        .query_map([], |r| {
+            let columns_json: String = r.get(5)?;
+            Ok(DataPool {
+                id: r.get(0)?,
+                name: r.get(1)?,
+                table_name: r.get(2)?,
+                source_file: r.get(3)?,
+                row_count: r.get(4)?,
+                columns: serde_json::from_str(&columns_json).unwrap_or_default(),
+                created_at: r.get(6)?,
+            })
+        })
+        .map_err(|e| AppError::db(format!("failed to read pools: {e}")))?;
+    rows.collect::<Result<_, _>>()
+        .map_err(|e| AppError::db(format!("failed to read pools: {e}")))
+}
+
+/// Delete a data pool and its DuckDB file.
+#[tauri::command]
+pub async fn delete_data_pool(
+    app: AppHandle,
+    db: State<'_, DbConnection>,
+    pool_id: String,
+) -> Result<(), AppError> {
+    {
+        let conn = db.lock().map_err(|_| AppError::db("DB lock poisoned"))?;
+        conn.execute("DELETE FROM data_pools WHERE id = ?1", rusqlite::params![pool_id])
+            .map_err(|e| AppError::db(format!("failed to delete pool: {e}")))?;
+    }
+    let pool_db = data_pool::pool_path(&pools_dir(&app)?, &pool_id);
+    let _ = std::fs::remove_file(&pool_db);
+    let _ = std::fs::remove_file(pool_db.with_extension("duckdb.wal"));
+    Ok(())
+}
+
+/// Ask a natural-language question of a pool: generate SQL, run it read-only, and narrate the
+/// result. A model must have been loaded via [`load_ai_model`] first.
+#[tauri::command]
+pub async fn ask_data_pool(
+    app: AppHandle,
+    db: State<'_, DbConnection>,
+    state: State<'_, Arc<AiState>>,
+    pool_id: String,
+    question: String,
+) -> Result<PoolAnswer, AppError> {
+    {
+        let conn = db.lock().map_err(|_| AppError::db("DB lock poisoned"))?;
+        let exists = conn
+            .query_row(
+                "SELECT 1 FROM data_pools WHERE id = ?1",
+                rusqlite::params![pool_id],
+                |_| Ok(()),
+            )
+            .is_ok();
+        if !exists {
+            return Err(AppError::validation("data pool not found"));
+        }
+    }
+    let pool_db = data_pool::pool_path(&pools_dir(&app)?, &pool_id);
+    let ai = state.inner().clone();
+
+    let (result, answer) = tokio::task::spawn_blocking(move || -> AppResult<_> {
+        let engine = ai.get_or_init()?;
+        let schema = capture_schema(&pool_db)?;
+        let result = answer_question(&engine, &pool_db, &schema, &question)?;
+        let answer = narrate(&engine, &question, &result)?;
+        Ok((result, answer))
+    })
+    .await
+    .map_err(|e| AppError::inference(format!("query task failed: {e}")))??;
+
+    Ok(PoolAnswer {
+        sql: result.sql,
+        columns: result.columns,
+        rows: result.rows,
+        truncated: result.truncated,
+        answer,
+    })
 }
