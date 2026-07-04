@@ -46,6 +46,7 @@ rand = "0.8"
 base64 = "0.22"
 url = "2"
 sysinfo = { version = "0.32", default-features = false, features = ["system", "disk"] }
+duckdb = { version = "=1.10504.0", features = ["bundled"] }
 
 [features]
 default = ["custom-protocol"]

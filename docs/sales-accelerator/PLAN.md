@@ -75,10 +75,10 @@ src/
 - [ ] Proof point: load 4B model, stream tokens into a React panel
 
 ### Phase 1 — Data-pools / text-to-SQL (MVP centerpiece)
-- [ ] Add DuckDB (`bundled`) alongside rusqlite; `{poolId}.duckdb` storage
+- [x] Add DuckDB `=1.10504.0` (`bundled`) alongside rusqlite — build validated on this Mac (1m51s). Pulls the Apache Arrow ecosystem (~20 crates) — flag for a `cargo-deny` pass. (Pool `{poolId}.duckdb` storage/lifecycle still to come.)
+- [x] Execution safety (§1.5): hardened read-only connection (`open_for_query`) + statement allowlist (`is_safe_select`, tokenised so `offset`/`asset` don't false-trip) + `ROW_CAP=1000` + **`memory_limit`/`threads` caps** (fixes half Ragtag's gap; a wall-clock query timeout still TODO). 6 tests incl. real read-only-blocks-writes.
 - [ ] Build pools from SOQL query results (typed); then xlsx/csv import w/ grid-clean + currency-coercion (§1.2)
 - [ ] Schema capture with sample values; deterministic join hints; per-request worked example (§1.3)
-- [ ] Execution safety (§1.5): read-only connection + statement allowlist + 1000-row cap + **query timeout/memory-limit (fix Ragtag's gap)**
 - [ ] 2-try error-repair loop with enriched hints (§1.6)
 - [ ] NL narration pass; **show SQL + result table (auditable)** (§1.7)
 - [ ] `/assistant` route UI
