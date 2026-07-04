@@ -79,8 +79,8 @@ src/
 - [x] Execution safety (§1.5): hardened read-only connection (`open_for_query`) + statement allowlist (`is_safe_select`, tokenised so `offset`/`asset` don't false-trip) + `ROW_CAP=1000` + **`memory_limit`/`threads` caps** (fixes half Ragtag's gap; a wall-clock query timeout still TODO). 6 tests incl. real read-only-blocks-writes.
 - [x] xlsx/csv import w/ grid-clean (drop empty cols, dense-header detection, `column_N` blanks, de-dupe, drop empty rows) + currency-coercion to DOUBLE (≥80%, hand-rolled matcher — no `regex` dep). `import_csv`/`import_xlsx` + `pool_path`. Verified end-to-end: messy CSV → cleaned → coerced → `SUM` via read-only connection. (Building pools from SOQL query results directly still TODO.)
 - [x] Schema capture (`capture_schema`): DESCRIBE + up-to-5 sample values per column + deterministic join hints + per-request worked example; `render_prompt_schema` for the model. Verified against a real pool.
-- [ ] 2-try error-repair loop with enriched hints (§1.6)
-- [ ] NL narration pass; **show SQL + result table (auditable)** (§1.7)
+- [x] Text-to-SQL query + 2-try repair loop (`answer_question`): prompt assembly (schema+samples+rules+worked example), deterministic SQL gen, is_safe_select gate, run via read-only conn, enriched error feedback. **Qwen3.5 <think> reasoning blocks stripped** (extract_sql + narration) — key fix.
+- [x] NL narration (`narrate`) grounded strictly in result figures; QueryResult carries SQL + text rows (auditable). Verified end-to-end vs real Qwen3.5 4B: "total amount for the UK?" → correct SQL → 52500 → "The total amount for the UK is 52500."
 - [ ] `/assistant` route UI
 
 ### Phase 2 — Report writer

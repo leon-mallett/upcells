@@ -13,6 +13,7 @@
 use std::path::{Path, PathBuf};
 
 pub mod import;
+pub mod query;
 pub mod safety;
 pub mod schema;
 
