@@ -10,7 +10,15 @@
 //! follow.
 #![allow(dead_code)] // wired up incrementally through Phase 1
 
+use std::path::{Path, PathBuf};
+
+pub mod import;
 pub mod safety;
 
 /// Maximum rows returned from a pool query (truncation is flagged to the UI). §1.5
 pub const ROW_CAP: usize = 1000;
+
+/// On-disk path for a pool's DuckDB file: `{pools_dir}/{pool_id}.duckdb`.
+pub fn pool_path(pools_dir: &Path, pool_id: &str) -> PathBuf {
+    pools_dir.join(format!("{pool_id}.duckdb"))
+}
