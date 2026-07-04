@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 
 pub mod import;
 pub mod safety;
+pub mod schema;
 
 /// Maximum rows returned from a pool query (truncation is flagged to the UI). §1.5
 pub const ROW_CAP: usize = 1000;
