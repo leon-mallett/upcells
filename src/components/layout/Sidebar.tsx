@@ -16,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { useConnectionStore } from "@/stores/connectionStore";
 import { useAdminStore } from "@/stores/adminStore";
 import { useSavedQueries, useDeleteSavedQuery } from "@/hooks/useQueries";
+import { useSalesAccelerator } from "@/hooks/useLicense";
 import type { SavedQuery } from "@/lib/tauri-commands";
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
@@ -25,6 +26,7 @@ export default function Sidebar() {
   const connectedCount = connections.filter((c) => c.status === "connected").length;
   const expiredCount = connections.filter((c) => c.status === "error").length;
   const adminEnabled = useAdminStore((s) => s.enabled);
+  const salesAccelerator = useSalesAccelerator();
 
   // The Data section auto-expands when the user is on /data and collapses
   // on any other route — no manual toggle needed.
@@ -54,8 +56,10 @@ export default function Sidebar() {
           {/* Update CRM */}
           <SimpleNavLink to="/update" icon={Upload} label="Update CRM" />
 
-          {/* Sales Accelerator (local AI) */}
-          <SimpleNavLink to="/assistant" icon={Sparkles} label="Assistant" />
+          {/* Sales Accelerator (local AI) — only for licences with the tier */}
+          {salesAccelerator && (
+            <SimpleNavLink to="/assistant" icon={Sparkles} label="Assistant" />
+          )}
 
           {/* History */}
           <SimpleNavLink to="/history" icon={History} label="History" />

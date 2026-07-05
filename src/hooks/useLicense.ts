@@ -35,6 +35,14 @@ export function useLicenseStatus() {
   });
 }
 
+/** Whether the current licence includes the Sales Accelerator tier. Always true in dev
+ *  (skip mode) so the feature is available without a licence during development. */
+export function useSalesAccelerator(): boolean {
+  const license = useLicenseStatus();
+  if (SKIP_LICENSE) return true;
+  return license.data?.sales_accelerator ?? false;
+}
+
 export function useMachineFingerprint() {
   return useQuery({
     queryKey: ["machine_fingerprint"],

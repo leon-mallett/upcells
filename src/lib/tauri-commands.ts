@@ -38,6 +38,8 @@ export interface LicenseInfo {
   machine_count: number | null;
   machine_limit: number | null;
   message: string;
+  /** Whether this licence includes the Sales Accelerator (local-AI) tier. */
+  sales_accelerator: boolean;
 }
 
 export interface AppError {

@@ -13,6 +13,7 @@ import {
   Plus,
   Cpu,
   CheckCircle2,
+  Lock,
 } from "lucide-react";
 import {
   Card,
@@ -37,6 +38,7 @@ import {
   useDownloadAiModel,
   useLoadAiModel,
 } from "@/hooks/useAssistant";
+import { useSalesAccelerator } from "@/hooks/useLicense";
 import type { DownloadProgress, PoolAnswer } from "@/lib/tauri-commands";
 
 const GB = 1e9;
@@ -54,6 +56,36 @@ function downloadEvent(id: string): string {
 }
 
 export default function AssistantPage() {
+  const entitled = useSalesAccelerator();
+  return entitled ? <AssistantFeature /> : <AssistantUpsell />;
+}
+
+function AssistantUpsell() {
+  return (
+    <div className="mx-auto max-w-2xl p-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lock className="h-4 w-4" /> Sales Accelerator
+          </CardTitle>
+          <CardDescription>A premium add-on for Upcells.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm text-muted-foreground">
+          <p>
+            Ask questions about your Salesforce data in plain English, with a private AI
+            assistant that runs entirely on your machine — no data ever leaves your device.
+          </p>
+          <p>
+            Your current licence doesn't include this tier. Contact us to upgrade and unlock
+            the Assistant.
+          </p>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function AssistantFeature() {
   const models = useAiModels();
   const hardware = useAiHardware();
   const recommendation = useAiRecommendation();

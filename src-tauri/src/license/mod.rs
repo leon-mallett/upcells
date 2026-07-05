@@ -26,6 +26,11 @@ pub struct LicenseInfo {
     pub machine_count: Option<u32>,
     pub machine_limit: Option<u32>,
     pub message: String,
+    /// Whether this licence includes the Sales Accelerator (local-AI) tier. Set from the
+    /// Keygen licence's `metadata.salesAccelerator` flag. `#[serde(default)]` keeps older
+    /// cached tokens (without the field) deserialising cleanly.
+    #[serde(default)]
+    pub sales_accelerator: bool,
 }
 
 /// Validates a license key against the Keygen API and activates the current
@@ -192,6 +197,9 @@ fn build_license_info(
     message: String,
 ) -> LicenseInfo {
     let attrs = &json["data"]["attributes"];
+    // The Sales Accelerator tier is flagged via licence metadata (set by the purchase
+    // webhook for the higher-tier product).
+    let sales_accelerator = attrs["metadata"]["salesAccelerator"].as_bool().unwrap_or(false);
     LicenseInfo {
         status,
         key: key.to_string(),
@@ -199,6 +207,7 @@ fn build_license_info(
         machine_count: None,
         machine_limit: attrs["maxMachines"].as_u64().map(|v| v as u32),
         message,
+        sales_accelerator,
     }
 }
 
