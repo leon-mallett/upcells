@@ -82,7 +82,7 @@ src/
 - [x] Text-to-SQL query + 2-try repair loop (`answer_question`): prompt assembly (schema+samples+rules+worked example), deterministic SQL gen, is_safe_select gate, run via read-only conn, enriched error feedback. **Qwen3.5 <think> reasoning blocks stripped** (extract_sql + narration) — key fix.
 - [x] NL narration (`narrate`) grounded strictly in result figures; QueryResult carries SQL + text rows (auditable). Verified end-to-end vs real Qwen3.5 4B: "total amount for the UK?" → correct SQL → 52500 → "The total amount for the UK is 52500."
 - [x] Command wiring + metadata: SQLite `data_pools` table (migration 002; `run_migrations` now applies incrementally) + commands `create_data_pool`/`list_data_pools`/`delete_data_pool`/`ask_data_pool` (question → SQL → run → narrate, on `spawn_blocking`). Builds clean; 28 tests pass.
-- [ ] `/assistant` route UI ← **next: the UI stage**
+- [x] `/assistant` route UI: model manager (hardware-aware recommendation, download w/ live progress via `model:download:{id}` events, activate), pool import (CSV/XLSX file picker → create), and the ask panel (question → answer + collapsible **auditable SQL + result table**). Typed command wrappers + `useAssistant` React Query hooks + sidebar nav. Typecheck + vite build clean. (Not yet license-gated — Phase 0 tier gating still TODO.)
 
 ### Phase 2 — Report writer
 - [ ] Streaming structured-document output (JSON-extractor in `on_token`, §2.4/§5)

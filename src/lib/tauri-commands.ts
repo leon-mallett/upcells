@@ -538,3 +538,113 @@ export const deactivateLicense = (): Promise<void> =>
 
 export const hasStoredLicense = (): Promise<boolean> =>
   invoke("has_stored_license");
+
+// ── Sales Accelerator: local AI ───────────────────────────────────────────────
+
+export type GpuKind = "apple_unified" | "nvidia" | "vulkan" | "none";
+
+export interface HardwareInfo {
+  total_ram_bytes: number;
+  available_ram_bytes: number;
+  cpu_brand: string;
+  cpu_cores: number;
+  free_disk_bytes: number;
+  gpu: { kind: GpuKind; vram_bytes: number | null };
+}
+
+export type ModelKind = "chat" | "embedding" | "rerank";
+export type SizeClass = "small" | "mid" | "large" | "moe" | "xlarge";
+
+export interface ModelEntry {
+  id: string;
+  display_name: string;
+  description: string;
+  kind: ModelKind;
+  hugging_face_repo: string;
+  hugging_face_file: string;
+  approximate_size_bytes: number;
+  context_length: number;
+  licence: string;
+  size_class: SizeClass;
+  family: string;
+  quant_label: string;
+  is_default_quant: boolean;
+  kv_bytes_per_token: number;
+  parameters: string;
+  min_ram_bytes: number;
+  recommended_ram_bytes: number;
+  recommended_vram_bytes: number;
+  disk_footprint_bytes: number;
+  sha256: string | null;
+  download_url: string | null;
+}
+
+export interface ModelRecommendation {
+  model_id: string;
+  tier: "comfortable" | "loadable" | "fallback";
+  confidence: "high" | "low";
+  rationale: string;
+}
+
+/** Payload of `model:download:{id}` progress events. */
+export interface DownloadProgress {
+  model_id: string;
+  downloaded: number;
+  total: number | null;
+}
+
+export const getAiHardwareInfo = (): Promise<HardwareInfo> =>
+  invoke("get_ai_hardware_info");
+
+export const listAiModels = (): Promise<ModelEntry[]> => invoke("list_ai_models");
+
+export const recommendAiModel = (): Promise<ModelRecommendation> =>
+  invoke("recommend_ai_model");
+
+export const downloadAiModel = (modelId: string): Promise<void> =>
+  invoke("download_ai_model", { modelId });
+
+export const cancelAiDownload = (): Promise<void> => invoke("cancel_ai_download");
+
+export const loadAiModel = (modelId: string): Promise<void> =>
+  invoke("load_ai_model", { modelId });
+
+export const cancelAiGeneration = (): Promise<void> =>
+  invoke("cancel_ai_generation");
+
+// ── Sales Accelerator: data pools ─────────────────────────────────────────────
+
+export interface DataPool {
+  id: string;
+  name: string;
+  table_name: string;
+  source_file: string | null;
+  row_count: number;
+  columns: string[];
+  created_at: number;
+}
+
+export interface PoolAnswer {
+  sql: string;
+  columns: string[];
+  rows: string[][];
+  truncated: boolean;
+  answer: string;
+}
+
+export const listDataPools = (): Promise<DataPool[]> => invoke("list_data_pools");
+
+export const createDataPool = (args: {
+  name: string;
+  file_path: string;
+}): Promise<DataPool> =>
+  invoke("create_data_pool", { name: args.name, filePath: args.file_path });
+
+export const deleteDataPool = (poolId: string): Promise<void> =>
+  invoke("delete_data_pool", { poolId });
+
+export const askDataPool = (args: {
+  pool_id: string;
+  question: string;
+}): Promise<PoolAnswer> =>
+  invoke("ask_data_pool", { poolId: args.pool_id, question: args.question });

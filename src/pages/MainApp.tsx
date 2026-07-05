@@ -12,6 +12,7 @@ import QueriesPage from "./QueriesPage";
 import ImportPage from "./ImportPage";
 import HistoryPage from "./HistoryPage";
 import AdminPage from "./AdminPage";
+import AssistantPage from "./AssistantPage";
 import SettingsPage from "./SettingsPage";
 
 // ── Route tree ────────────────────────────────────────────────────────────────
@@ -62,6 +63,12 @@ const adminRoute = createRoute({
   component: AdminPage,
 });
 
+const assistantRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/assistant",
+  component: AssistantPage,
+});
+
 const settingsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/settings",
@@ -75,6 +82,7 @@ const routeTree = rootRoute.addChildren([
   updateRoute,
   historyRoute,
   adminRoute,
+  assistantRoute,
   settingsRoute,
 ]);
 

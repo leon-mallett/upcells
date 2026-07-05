@@ -9,6 +9,7 @@ import {
   Trash2,
   LayoutDashboard,
   ShieldCheck,
+  Sparkles,
 } from "lucide-react";
 import UpcellsLogo from "@/components/layout/UpcellsLogo";
 import { cn } from "@/lib/utils";
@@ -52,6 +53,9 @@ export default function Sidebar() {
 
           {/* Update CRM */}
           <SimpleNavLink to="/update" icon={Upload} label="Update CRM" />
+
+          {/* Sales Accelerator (local AI) */}
+          <SimpleNavLink to="/assistant" icon={Sparkles} label="Assistant" />
 
           {/* History */}
           <SimpleNavLink to="/history" icon={History} label="History" />
