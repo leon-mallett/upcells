@@ -166,7 +166,8 @@ function AssistantFeature() {
   const canAsk = !!activeModelId && !!selectedPoolId && !!question.trim() && !ask.isPending;
 
   return (
-    <div className="mx-auto max-w-4xl space-y-6 p-6">
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-4xl space-y-6 p-6">
       <header>
         <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
           <Sparkles className="h-6 w-6 text-primary" /> Sales Accelerator
@@ -223,7 +224,7 @@ function AssistantFeature() {
           <div className="flex items-center gap-3">
             <Button
               onClick={() => selectedModelId && activateModel(selectedModelId)}
-              disabled={busyModel || !selectedModelId}
+              disabled={busyModel || !selectedModelId || activeModelId === selectedModelId}
             >
               {busyModel ? (
                 <>
@@ -375,6 +376,7 @@ function AssistantFeature() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
