@@ -84,6 +84,8 @@ src/
 - [x] Command wiring + metadata: SQLite `data_pools` table (migration 002; `run_migrations` now applies incrementally) + commands `create_data_pool`/`list_data_pools`/`delete_data_pool`/`ask_data_pool` (question → SQL → run → narrate, on `spawn_blocking`). Builds clean; 28 tests pass.
 - [x] `/assistant` route UI + IA restructure. Assistant is chat-centric: idea-shortcut chips (data ones prefill; "email"/"report" are `soon` placeholders), a pool picker, and answers with collapsible **auditable SQL + result table**. **Model manager moved to Settings → "AI Assistant" tab** (tier-gated); the Assistant reads an active-model query (`get_active_ai_model`) and prompts to set up model/data when missing. **Data pools management moved to Sales Data** (renamed from "Data"; interim segmented "Query CRM | Data Pools" tabs — full landing redesign deferred). Saved-queries dropdown removed from the sidebar. Typed wrappers + `useAssistant` hooks. Typecheck + vite + rust build clean.
 
+- [x] Conversational memory: the frontend owns the turn history and passes prior `{question, sql}` pairs (last 6) into the SQL prompt so follow-ups resolve ("And for the US?" → `WHERE "Region"='US'`). Verified vs real Qwen3.5 4B. History cleared on pool switch; a "New chat" resets it. (Narration stays grounded in the current result only.)
+
 ### Phase 2 — Report writer
 - [ ] Streaming structured-document output (JSON-extractor in `on_token`, §2.4/§5)
 - [ ] Compute figures via SQL and inject — never transcribe from memory

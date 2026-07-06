@@ -11,7 +11,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::data_pool::import::{import_csv, import_rows, import_xlsx};
-use crate::data_pool::query::{answer_question, narrate};
+use crate::data_pool::query::{answer_question, narrate, PriorTurn};
 use crate::data_pool::schema::capture_schema;
 use crate::data_pool::{self};
 use crate::db::models::DataPool;
@@ -403,6 +403,7 @@ pub async fn ask_data_pool(
     state: State<'_, Arc<AiState>>,
     pool_id: String,
     question: String,
+    history: Vec<PriorTurn>,
 ) -> Result<PoolAnswer, AppError> {
     {
         let conn = db.lock().map_err(|_| AppError::db("DB lock poisoned"))?;
@@ -423,7 +424,7 @@ pub async fn ask_data_pool(
     let (result, answer) = tokio::task::spawn_blocking(move || -> AppResult<_> {
         let engine = ai.get_or_init()?;
         let schema = capture_schema(&pool_db)?;
-        let result = answer_question(&engine, &pool_db, &schema, &question)?;
+        let result = answer_question(&engine, &pool_db, &schema, &question, &history)?;
         let answer = narrate(&engine, &question, &result)?;
         Ok((result, answer))
     })

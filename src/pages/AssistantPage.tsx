@@ -71,7 +71,13 @@ function AssistantFeature() {
     const q = text.trim();
     if (!q || !selectedPoolId || !modelReady || ask.isPending) return;
     setQuestion("");
-    const res = await ask.mutateAsync({ pool_id: selectedPoolId, question: q }).catch(() => null);
+    // Prior successful turns give the model context for follow-ups ("and for the US?").
+    const history = turns
+      .filter((t) => t.answer)
+      .map((t) => ({ question: t.question, sql: t.answer!.sql }));
+    const res = await ask
+      .mutateAsync({ pool_id: selectedPoolId, question: q, history })
+      .catch(() => null);
     setTurns((t) => [...t, { question: q, answer: res }]);
   }
 
@@ -163,7 +169,11 @@ function AssistantFeature() {
                 <label className="text-xs text-muted-foreground">Data:</label>
                 <select
                   value={selectedPoolId ?? ""}
-                  onChange={(e) => setSelectedPoolId(e.target.value)}
+                  onChange={(e) => {
+                    // New data context → start a fresh conversation.
+                    setSelectedPoolId(e.target.value);
+                    setTurns([]);
+                  }}
                   className="rounded-md border bg-background px-2 py-1 text-xs"
                 >
                   {poolList.map((p) => (
@@ -172,6 +182,14 @@ function AssistantFeature() {
                     </option>
                   ))}
                 </select>
+                {turns.length > 0 && (
+                  <button
+                    onClick={() => setTurns([])}
+                    className="ml-auto text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    New chat
+                  </button>
+                )}
               </div>
               <div className="flex gap-2">
                 <Input

@@ -8,7 +8,7 @@
 use std::path::Path;
 
 use duckdb::types::Value;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::data_pool::safety::{is_safe_select, open_for_query};
 use crate::data_pool::schema::{join_hints, render_prompt_schema, worked_example, PoolSchema};
@@ -20,6 +20,16 @@ use crate::inference::engine::{GenerationParams, InferenceEngine};
 const MAX_ATTEMPTS: usize = 2;
 /// Rows of the result shown to the narration pass.
 const NARRATION_PREVIEW_ROWS: usize = 30;
+/// How many prior turns to feed into the SQL prompt as conversational context.
+const HISTORY_LIMIT: usize = 6;
+
+/// A prior conversation turn (question + the SQL that answered it), used so a follow-up like
+/// "and for the US?" can be resolved against earlier questions.
+#[derive(Debug, Clone, Deserialize)]
+pub struct PriorTurn {
+    pub question: String,
+    pub sql: String,
+}
 
 /// Qwen3.x emits `<think>…</think>` reasoning. Prefilling a closed, empty block makes the
 /// model spend **zero** tokens reasoning — critical on weak CPUs where thinking can exhaust
@@ -52,11 +62,14 @@ pub fn answer_question(
     pool_db: &Path,
     schema: &PoolSchema,
     question: &str,
+    history: &[PriorTurn],
 ) -> AppResult<QueryResult> {
     let mut prev_error: Option<String> = None;
     for _ in 0..MAX_ATTEMPTS {
-        let prompt =
-            with_think_prefill(engine, build_sql_prompt(schema, question, prev_error.as_deref()));
+        let prompt = with_think_prefill(
+            engine,
+            build_sql_prompt(schema, question, prev_error.as_deref(), history),
+        );
         let raw = engine.generate(&prompt, &GenerationParams::deterministic_sql(), |_| {})?;
         let sql = extract_sql(&raw);
 
@@ -155,7 +168,12 @@ fn strip_reasoning(raw: &str) -> String {
 
 // ── Prompt assembly ──────────────────────────────────────────────────────────
 
-fn build_sql_prompt(schema: &PoolSchema, question: &str, prev_error: Option<&str>) -> String {
+fn build_sql_prompt(
+    schema: &PoolSchema,
+    question: &str,
+    prev_error: Option<&str>,
+    history: &[PriorTurn],
+) -> String {
     let mut prompt = String::new();
     prompt.push_str(
         "You are a DuckDB SQL generator. Output ONLY a single read-only SQL SELECT query — no \
@@ -165,6 +183,8 @@ fn build_sql_prompt(schema: &PoolSchema, question: &str, prev_error: Option<&str
          - To find rows for a label (a stage, region, quarter…), filter on the column whose sample \
          values match it — even if the column has a generic name.\n\
          - Use SUM/AVG/COUNT with GROUP BY for totals; ORDER BY … DESC + LIMIT for \"top N\".\n\
+         - A follow-up question may refer to an earlier one (e.g. \"and for the US?\"); reuse the \
+         earlier query's shape, changing only what the follow-up asks.\n\
          - Only SELECT is allowed.\n\n",
     );
 
@@ -181,6 +201,15 @@ fn build_sql_prompt(schema: &PoolSchema, question: &str, prev_error: Option<&str
 
     if let Some(example) = worked_example(schema) {
         prompt.push_str(&format!("\nExample of correct quoting:\n{example}\n"));
+    }
+
+    // Conversational context: the most recent prior turns (question + the SQL that answered it).
+    if !history.is_empty() {
+        prompt.push_str("\nEarlier in this conversation:\n");
+        let start = history.len().saturating_sub(HISTORY_LIMIT);
+        for turn in &history[start..] {
+            prompt.push_str(&format!("- Q: {}\n  SQL: {}\n", turn.question, turn.sql));
+        }
     }
 
     prompt.push_str(&format!("\nQuestion: {question}\n"));
@@ -351,7 +380,7 @@ mod tests {
     fn prompt_includes_schema_samples_and_question() {
         let pool = seed_pool();
         let schema = capture_schema(&pool).unwrap();
-        let prompt = build_sql_prompt(&schema, "total amount by region", None);
+        let prompt = build_sql_prompt(&schema, "total amount by region", None, &[]);
         assert!(prompt.contains("\"Region\""));
         assert!(prompt.contains("e.g."));
         assert!(prompt.contains("total amount by region"));
@@ -372,13 +401,38 @@ mod tests {
             .load_model("qwen3.5-4b-q5_k_m", std::path::Path::new(&path))
             .expect("load");
 
-        let result = answer_question(&engine, &pool, &schema, "What is the total amount for the UK?")
-            .expect("answer");
+        let result =
+            answer_question(&engine, &pool, &schema, "What is the total amount for the UK?", &[])
+                .expect("answer");
         eprintln!("[sql] {}", result.sql);
         eprintln!("[rows] {:?}", result.rows);
         let narration = narrate(&engine, "What is the total amount for the UK?", &result).expect("narrate");
         eprintln!("[answer] {narration}");
         // The correct total is 52500; the narration should mention it.
         assert!(narration.contains("52") || result.rows.iter().flatten().any(|c| c.contains("52500")));
+    }
+
+    /// Conversational memory: a follow-up ("And for the US?") resolves against the prior turn.
+    #[test]
+    #[ignore = "requires a local GGUF via UPCELLS_SMOKE_GGUF"]
+    fn end_to_end_follow_up_uses_history() {
+        let path = std::env::var("UPCELLS_SMOKE_GGUF").expect("set UPCELLS_SMOKE_GGUF");
+        let pool = seed_pool();
+        let schema = capture_schema(&pool).unwrap();
+        let engine = InferenceEngine::new().expect("engine");
+        engine
+            .load_model("qwen3.5-4b-q5_k_m", std::path::Path::new(&path))
+            .expect("load");
+
+        let q1 = "What is the total amount for the UK?";
+        let first = answer_question(&engine, &pool, &schema, q1, &[]).expect("first");
+        let history = vec![PriorTurn { question: q1.to_string(), sql: first.sql.clone() }];
+
+        let follow = answer_question(&engine, &pool, &schema, "And for the US?", &history)
+            .expect("follow-up");
+        eprintln!("[follow-up sql] {}", follow.sql);
+        eprintln!("[follow-up rows] {:?}", follow.rows);
+        // The US total is 7000; the follow-up should resolve "US" from context, not error.
+        assert!(follow.rows.iter().flatten().any(|c| c.contains("7000")));
     }
 }

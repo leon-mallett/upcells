@@ -661,8 +661,19 @@ export const createDataPoolFromResults = (args: {
 export const deleteDataPool = (poolId: string): Promise<void> =>
   invoke("delete_data_pool", { poolId });
 
+/** A prior conversation turn (question + the SQL that answered it) for follow-up context. */
+export interface PriorTurn {
+  question: string;
+  sql: string;
+}
+
 export const askDataPool = (args: {
   pool_id: string;
   question: string;
+  history: PriorTurn[];
 }): Promise<PoolAnswer> =>
-  invoke("ask_data_pool", { poolId: args.pool_id, question: args.question });
+  invoke("ask_data_pool", {
+    poolId: args.pool_id,
+    question: args.question,
+    history: args.history,
+  });

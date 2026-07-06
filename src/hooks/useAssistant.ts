@@ -102,7 +102,11 @@ export function useDeleteDataPool() {
 
 export function useAskDataPool() {
   return useMutation({
-    mutationFn: (args: { pool_id: string; question: string }) => askDataPool(args),
+    mutationFn: (args: {
+      pool_id: string;
+      question: string;
+      history: { question: string; sql: string }[];
+    }) => askDataPool(args),
     onError: (e) => toast.error(`Query failed: ${errMsg(e)}`),
   });
 }
