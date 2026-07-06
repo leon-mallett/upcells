@@ -83,6 +83,7 @@ pub fn run() {
             commands::get_active_ai_model,
             // Data pools (text-to-SQL)
             commands::create_data_pool,
+            commands::create_data_pool_from_results,
             commands::list_data_pools,
             commands::delete_data_pool,
             commands::ask_data_pool,

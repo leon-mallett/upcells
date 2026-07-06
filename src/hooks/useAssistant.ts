@@ -3,6 +3,7 @@ import { toast } from "sonner";
 import {
   askDataPool,
   createDataPool,
+  createDataPoolFromResults,
   deleteDataPool,
   downloadAiModel,
   getActiveAiModel,
@@ -73,6 +74,20 @@ export function useCreateDataPool() {
       toast.success(`Imported "${pool.name}" (${pool.row_count.toLocaleString()} rows)`);
     },
     onError: (e) => toast.error(`Import failed: ${errMsg(e)}`),
+  });
+}
+
+/** Create a pool from query results (the primary path — run a query, save the results). */
+export function useCreateDataPoolFromResults() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (args: { name: string; columns: string[]; rows: string[][] }) =>
+      createDataPoolFromResults(args),
+    onSuccess: (pool) => {
+      qc.invalidateQueries({ queryKey: dataPoolsKey });
+      toast.success(`Saved "${pool.name}" as a data pool (${pool.row_count.toLocaleString()} rows)`);
+    },
+    onError: (e) => toast.error(`Couldn't save pool: ${errMsg(e)}`),
   });
 }
 

@@ -31,7 +31,9 @@ export default function DataPoolsPanel() {
             <Database className="h-4 w-4" /> Data pools
           </h2>
           <p className="text-xs text-muted-foreground">
-            Import a CSV or Excel export to ask the Assistant questions about it.
+            The Assistant answers questions about these. The main way to create one is to run a
+            query in <span className="font-medium">Query CRM</span> and choose{" "}
+            <span className="font-medium">Save as Data Pool</span>. You can also import a file.
           </p>
         </div>
         <Button size="sm" variant="outline" onClick={importPool} disabled={createPool.isPending}>
@@ -40,7 +42,7 @@ export default function DataPoolsPanel() {
           ) : (
             <Plus className="mr-2 h-4 w-4" />
           )}
-          Import file
+          Import a file
         </Button>
       </div>
 
@@ -64,8 +66,9 @@ export default function DataPoolsPanel() {
           ))}
         </div>
       ) : (
-        <p className="rounded-lg border border-dashed py-8 text-center text-sm text-muted-foreground">
-          No data pools yet. Import a CSV/Excel file to get started.
+        <p className="rounded-lg border border-dashed px-4 py-8 text-center text-sm text-muted-foreground">
+          No data pools yet. Run a query in <span className="font-medium">Query CRM</span> and
+          choose <span className="font-medium">Save as Data Pool</span>, or import a spreadsheet.
         </p>
       )}
     </div>

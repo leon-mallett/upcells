@@ -107,10 +107,11 @@ function AssistantFeature() {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="flex items-center gap-2 text-base">
-                <Database className="h-4 w-4" /> Import your data
+                <Database className="h-4 w-4" /> Add some data
               </CardTitle>
               <CardDescription>
-                Import a CSV or Excel export as a data pool to ask questions about it.
+                In Sales Data, run a query and choose "Save as Data Pool" (or import a file), then
+                come back to ask questions about it.
               </CardDescription>
             </CardHeader>
             <CardContent>

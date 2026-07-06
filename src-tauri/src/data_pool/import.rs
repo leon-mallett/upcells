@@ -51,6 +51,35 @@ pub fn import_xlsx(pool_db: &Path, table: &str, xlsx_path: &Path) -> AppResult<I
 
 fn import_grid(pool_db: &Path, table: &str, grid: RawGrid) -> AppResult<ImportSummary> {
     let clean = clean_grid(grid)?;
+    finalise_pool(pool_db, table, clean)
+}
+
+/// Build a pool directly from already-structured rows (e.g. Salesforce query results) —
+/// the primary way users create pools. No grid-cleaning: the columns are known and all are
+/// kept; currency/number coercion still applies.
+pub fn import_rows(
+    pool_db: &Path,
+    table: &str,
+    mut columns: Vec<String>,
+    rows: Vec<Vec<String>>,
+) -> AppResult<ImportSummary> {
+    if columns.is_empty() {
+        return Err(AppError::validation("query has no columns"));
+    }
+    dedupe(&mut columns);
+    let width = columns.len();
+    let rows: Vec<Vec<String>> = rows
+        .into_iter()
+        .map(|mut r| {
+            r.resize(width, String::new());
+            r.into_iter().map(|c| c.trim().to_string()).collect()
+        })
+        .collect();
+    finalise_pool(pool_db, table, CleanTable { columns, rows })
+}
+
+/// Detect numeric columns, create the table, load the rows, and return a summary.
+fn finalise_pool(pool_db: &Path, table: &str, clean: CleanTable) -> AppResult<ImportSummary> {
     let numeric = detect_numeric_columns(&clean);
     let table_safe = safe_table_name(table);
 
@@ -384,6 +413,36 @@ mod tests {
         assert!(!looks_like_currency("Q1 2025"));
         assert!(!looks_like_currency("Closed Won"));
         assert!(!looks_like_currency(""));
+    }
+
+    #[test]
+    fn imports_rows_directly_and_coerces_numbers() {
+        let dir = std::env::temp_dir().join("upcells-rows-test");
+        std::fs::create_dir_all(&dir).unwrap();
+        let pool = dir.join("rows.duckdb");
+        let _ = std::fs::remove_file(&pool);
+
+        let columns = vec!["Region".to_string(), "Amount".to_string()];
+        let rows = vec![
+            vec!["UK".to_string(), "12500".to_string()],
+            vec!["UK".to_string(), "40000".to_string()],
+            vec!["US".to_string(), "7000".to_string()],
+        ];
+        let summary = import_rows(&pool, "opportunities", columns, rows).expect("import rows");
+        assert_eq!(summary.row_count, 3);
+        // Plain numeric strings (as Salesforce results serialise) still coerce to DOUBLE.
+        assert!(summary.numeric_columns.contains(&"Amount".to_string()));
+
+        let conn = open_for_query(&pool).expect("read-only open");
+        let total: f64 = conn
+            .query_row(
+                "SELECT sum(\"Amount\") FROM opportunities WHERE \"Region\" = 'UK'",
+                [],
+                |r| r.get(0),
+            )
+            .expect("aggregate");
+        assert_eq!(total, 52_500.0);
+        let _ = std::fs::remove_file(&pool);
     }
 
     #[test]

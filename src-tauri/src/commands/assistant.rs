@@ -10,7 +10,7 @@ use std::sync::{Arc, Mutex};
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
-use crate::data_pool::import::{import_csv, import_xlsx};
+use crate::data_pool::import::{import_csv, import_rows, import_xlsx};
 use crate::data_pool::query::{answer_question, narrate};
 use crate::data_pool::schema::capture_schema;
 use crate::data_pool::{self};
@@ -282,6 +282,66 @@ pub async fn create_data_pool(
         name,
         table_name: summary.table,
         source_file: Some(file_path),
+        row_count: summary.row_count as i64,
+        columns: summary.columns,
+        created_at,
+    })
+}
+
+/// Create a data pool directly from Salesforce query results — the primary path (run a query,
+/// then save the results as a pool without a file round-trip).
+#[tauri::command]
+pub async fn create_data_pool_from_results(
+    app: AppHandle,
+    db: State<'_, DbConnection>,
+    name: String,
+    columns: Vec<String>,
+    rows: Vec<Vec<String>>,
+) -> Result<DataPool, AppError> {
+    if rows.is_empty() {
+        return Err(AppError::validation("no rows to save — run a query first"));
+    }
+    let id = uuid::Uuid::new_v4().to_string();
+    let pools = pools_dir(&app)?;
+    std::fs::create_dir_all(&pools)
+        .map_err(|e| AppError::io(format!("failed to create pools dir: {e}")))?;
+    let pool_db = data_pool::pool_path(&pools, &id);
+
+    let table = name.clone();
+    let pool_db_for_task = pool_db.clone();
+    let summary = tokio::task::spawn_blocking(move || {
+        import_rows(&pool_db_for_task, &table, columns, rows)
+    })
+    .await
+    .map_err(|e| AppError::inference(format!("import task failed: {e}")))??;
+
+    let created_at = chrono::Utc::now().timestamp();
+    let columns_json = serde_json::to_string(&summary.columns).unwrap_or_else(|_| "[]".into());
+    const SOURCE: &str = "Salesforce query";
+    {
+        let conn = db.lock().map_err(|_| AppError::db("DB lock poisoned"))?;
+        conn.execute(
+            "INSERT INTO data_pools \
+             (id, name, table_name, source_file, row_count, columns_json, created_at) \
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+            rusqlite::params![
+                id,
+                name,
+                summary.table,
+                SOURCE,
+                summary.row_count as i64,
+                columns_json,
+                created_at
+            ],
+        )
+        .map_err(|e| AppError::db(format!("failed to save pool: {e}")))?;
+    }
+
+    Ok(DataPool {
+        id,
+        name,
+        table_name: summary.table,
+        source_file: Some(SOURCE.to_string()),
         row_count: summary.row_count as i64,
         columns: summary.columns,
         created_at,

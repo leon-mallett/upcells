@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useSearch, useNavigate } from "@tanstack/react-router";
 import {
-  Play, Save, Plus, X, ChevronDown, ChevronRight, Loader2, RotateCcw, ArrowUpDown, Download, Lock,
+  Play, Save, Plus, X, ChevronDown, ChevronRight, Loader2, RotateCcw, ArrowUpDown, Download, Lock, Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { save as saveDialog } from "@tauri-apps/plugin-dialog";
@@ -26,6 +26,8 @@ import {
   useUpdateSavedQuery,
 } from "@/hooks/useQueries";
 import { useExportQueryResults } from "@/hooks/useExport";
+import { useCreateDataPoolFromResults } from "@/hooks/useAssistant";
+import { useSalesAccelerator } from "@/hooks/useLicense";
 import type {
   SavedQuery,
   SObjectField,
@@ -34,6 +36,19 @@ import type {
 } from "@/lib/tauri-commands";
 import ResultsTable from "@/components/queries/ResultsTable";
 import SessionExpiredBanner from "@/components/connections/SessionExpiredBanner";
+
+/** Stringify a record value for a data pool — mirrors the results-table display formatter
+ *  (relationship objects show their Name; everything else is stringified). */
+function formatPoolCell(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  if (typeof val === "boolean") return val ? "true" : "false";
+  if (typeof val === "object") {
+    const obj = val as Record<string, unknown>;
+    if (obj.Name && typeof obj.Name === "string") return obj.Name;
+    return JSON.stringify(val);
+  }
+  return String(val);
+}
 
 // ── Common Salesforce objects always shown at the top of the selector ──────────
 const COMMON_OBJECTS = [
@@ -368,6 +383,20 @@ export default function QueriesPage() {
   const saveQ = useSaveQuery(connectionId);
   const updateQ = useUpdateSavedQuery(connectionId);
   const exportQ = useExportQueryResults();
+  const savePool = useCreateDataPoolFromResults();
+  const salesAccelerator = useSalesAccelerator();
+
+  // Turn the current query results into a data pool for the Assistant (the primary path).
+  async function saveAsDataPool() {
+    if (!results || results.records.length === 0) return;
+    const name = objectName || "CRM data";
+    const rows = results.records.map((rec) =>
+      results.columns.map((col) => formatPoolCell((rec as Record<string, unknown>)[col])),
+    );
+    await savePool
+      .mutateAsync({ name, columns: results.columns, rows })
+      .catch(() => {});
+  }
 
   // ── Export dropdown state ───────────────────────────────────────────────────
   const [exportMenuOpen, setExportMenuOpen] = useState(false);
@@ -863,6 +892,23 @@ export default function QueriesPage() {
             )}
 
             <div className="ml-auto flex items-center gap-2">
+              {salesAccelerator && results && results.records.length > 0 && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-7 text-xs"
+                  onClick={saveAsDataPool}
+                  disabled={savePool.isPending}
+                  title="Save these results as a data pool to ask the Assistant about"
+                >
+                  {savePool.isPending ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  Save as Data Pool
+                </Button>
+              )}
               {results && results.records.length > 0 && (
                 <div className="relative">
                   <Button

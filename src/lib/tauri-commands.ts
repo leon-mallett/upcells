@@ -646,6 +646,18 @@ export const createDataPool = (args: {
 }): Promise<DataPool> =>
   invoke("create_data_pool", { name: args.name, filePath: args.file_path });
 
+/** Create a pool directly from query results (the primary path). */
+export const createDataPoolFromResults = (args: {
+  name: string;
+  columns: string[];
+  rows: string[][];
+}): Promise<DataPool> =>
+  invoke("create_data_pool_from_results", {
+    name: args.name,
+    columns: args.columns,
+    rows: args.rows,
+  });
+
 export const deleteDataPool = (poolId: string): Promise<void> =>
   invoke("delete_data_pool", { poolId });
 
