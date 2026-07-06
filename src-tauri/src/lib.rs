@@ -80,6 +80,7 @@ pub fn run() {
             commands::load_ai_model,
             commands::generate_ai,
             commands::cancel_ai_generation,
+            commands::get_active_ai_model,
             // Data pools (text-to-SQL)
             commands::create_data_pool,
             commands::list_data_pools,

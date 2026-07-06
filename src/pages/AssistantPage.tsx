@@ -1,19 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
-import { open as openDialog } from "@tauri-apps/plugin-dialog";
+import { Link } from "@tanstack/react-router";
 import {
   Sparkles,
-  Download,
-  Database,
   Send,
-  Trash2,
   Loader2,
   ChevronDown,
   ChevronRight,
-  Plus,
-  Cpu,
-  CheckCircle2,
   Lock,
+  Cpu,
+  Database,
 } from "lucide-react";
 import {
   Card,
@@ -24,40 +19,229 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import {
-  useAiHardware,
-  useAiModels,
-  useAiRecommendation,
-  useAskDataPool,
-  useCreateDataPool,
-  useDataPools,
-  useDeleteDataPool,
-  useDownloadAiModel,
-  useLoadAiModel,
-} from "@/hooks/useAssistant";
+import { useActiveAiModel, useAskDataPool, useDataPools } from "@/hooks/useAssistant";
 import { useSalesAccelerator } from "@/hooks/useLicense";
-import type { DownloadProgress, PoolAnswer } from "@/lib/tauri-commands";
+import type { PoolAnswer } from "@/lib/tauri-commands";
 
-const GB = 1e9;
-const MB = 1e6;
+type Turn = { question: string; answer: PoolAnswer | null };
 
-function formatBytes(n: number): string {
-  if (n >= GB) return `${(n / GB).toFixed(1)} GB`;
-  if (n >= MB) return `${Math.round(n / MB)} MB`;
-  return `${Math.max(1, Math.round(n / 1e3))} KB`;
-}
-
-/** Mirror the Rust event-name sanitiser (dots etc. → `_`). */
-function downloadEvent(id: string): string {
-  return `model:download:${id.replace(/[^A-Za-z0-9_-]/g, "_")}`;
-}
+/** Idea shortcuts. `query` prefills the box; `soon` are roadmap placeholders. */
+const IDEAS: { label: string; kind: "query" | "soon"; text?: string }[] = [
+  {
+    label: "My 3 largest open opportunities",
+    kind: "query",
+    text: "What are my 3 largest open opportunities?",
+  },
+  { label: "Total amount by stage", kind: "query", text: "What is the total amount by stage?" },
+  {
+    label: "Accounts with the most opportunities",
+    kind: "query",
+    text: "Which accounts have the most opportunities?",
+  },
+  { label: "Write an email for my prospect", kind: "soon" },
+  { label: "Create an activity report for my boss", kind: "soon" },
+];
 
 export default function AssistantPage() {
   const entitled = useSalesAccelerator();
   return entitled ? <AssistantFeature /> : <AssistantUpsell />;
+}
+
+function AssistantFeature() {
+  const activeModel = useActiveAiModel();
+  const pools = useDataPools();
+  const ask = useAskDataPool();
+
+  const poolList = useMemo(() => pools.data ?? [], [pools.data]);
+  const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
+  const [question, setQuestion] = useState("");
+  const [turns, setTurns] = useState<Turn[]>([]);
+
+  const modelReady = !!activeModel.data;
+
+  useEffect(() => {
+    if (!selectedPoolId && poolList.length) setSelectedPoolId(poolList[0].id);
+  }, [poolList, selectedPoolId]);
+
+  const canAsk = modelReady && !!selectedPoolId && !!question.trim() && !ask.isPending;
+
+  async function send(text: string) {
+    const q = text.trim();
+    if (!q || !selectedPoolId || !modelReady || ask.isPending) return;
+    setQuestion("");
+    const res = await ask.mutateAsync({ pool_id: selectedPoolId, question: q }).catch(() => null);
+    setTurns((t) => [...t, { question: q, answer: res }]);
+  }
+
+  return (
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto flex min-h-full max-w-3xl flex-col gap-4 p-6">
+        <header>
+          <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
+            <Sparkles className="h-6 w-6 text-primary" /> Sales Accelerator
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Ask questions about your sales data in plain English — runs 100% on your machine.
+          </p>
+        </header>
+
+        {!modelReady ? (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Cpu className="h-4 w-4" /> Set up your AI model
+              </CardTitle>
+              <CardDescription>
+                Choose and download a local AI model to power the assistant.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link to="/settings">
+                <Button size="sm">Open Settings</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : poolList.length === 0 ? (
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="flex items-center gap-2 text-base">
+                <Database className="h-4 w-4" /> Import your data
+              </CardTitle>
+              <CardDescription>
+                Import a CSV or Excel export as a data pool to ask questions about it.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Link to="/data" search={{}}>
+                <Button size="sm">Go to Sales Data</Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <>
+            <div className="flex-1 space-y-4">
+              {turns.length === 0 ? (
+                <div className="space-y-3 pt-2">
+                  <p className="text-sm text-muted-foreground">Try asking…</p>
+                  <div className="flex flex-wrap gap-2">
+                    {IDEAS.map((idea) => (
+                      <button
+                        key={idea.label}
+                        onClick={() =>
+                          idea.kind === "query"
+                            ? setQuestion(idea.text!)
+                            : toast("Coming soon — this is on the roadmap.")
+                        }
+                        className={cn(
+                          "rounded-full border px-3 py-1.5 text-xs transition hover:bg-accent",
+                          idea.kind === "soon" && "text-muted-foreground",
+                        )}
+                      >
+                        {idea.label}
+                        {idea.kind === "soon" && (
+                          <span className="ml-1.5 text-[10px] opacity-60">soon</span>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                turns.map((turn, i) => <TurnView key={i} turn={turn} />)
+              )}
+              {ask.isPending && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Thinking…
+                </div>
+              )}
+            </div>
+
+            <div className="sticky bottom-0 space-y-2 bg-background pt-2">
+              <div className="flex items-center gap-2">
+                <label className="text-xs text-muted-foreground">Data:</label>
+                <select
+                  value={selectedPoolId ?? ""}
+                  onChange={(e) => setSelectedPoolId(e.target.value)}
+                  className="rounded-md border bg-background px-2 py-1 text-xs"
+                >
+                  {poolList.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={question}
+                  onChange={(e) => setQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && canAsk) send(question);
+                  }}
+                  placeholder="Ask about your data…"
+                />
+                <Button onClick={() => send(question)} disabled={!canAsk}>
+                  {ask.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function TurnView({ turn }: { turn: Turn }) {
+  const [showSql, setShowSql] = useState(false);
+  return (
+    <div className="space-y-2">
+      <div className="flex justify-end">
+        <div className="max-w-[85%] rounded-2xl bg-primary px-4 py-2 text-sm text-primary-foreground">
+          {turn.question}
+        </div>
+      </div>
+      {turn.answer ? (
+        <div className="space-y-2">
+          <div className="max-w-[90%] rounded-2xl border bg-muted/30 px-4 py-2 text-sm leading-relaxed">
+            {turn.answer.answer}
+          </div>
+          <button
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setShowSql((s) => !s)}
+          >
+            {showSql ? (
+              <ChevronDown className="h-3.5 w-3.5" />
+            ) : (
+              <ChevronRight className="h-3.5 w-3.5" />
+            )}
+            Show the query &amp; data
+          </button>
+          {showSql && (
+            <div className="space-y-2">
+              <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
+                <code>{turn.answer.sql}</code>
+              </pre>
+              <ResultTable
+                columns={turn.answer.columns}
+                rows={turn.answer.rows}
+                truncated={turn.answer.truncated}
+              />
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="max-w-[90%] rounded-2xl border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
+          Sorry, I couldn't answer that one. Try rephrasing the question.
+        </div>
+      )}
+    </div>
+  );
 }
 
 function AssistantUpsell() {
@@ -81,302 +265,6 @@ function AssistantUpsell() {
           </p>
         </CardContent>
       </Card>
-    </div>
-  );
-}
-
-function AssistantFeature() {
-  const models = useAiModels();
-  const hardware = useAiHardware();
-  const recommendation = useAiRecommendation();
-  const pools = useDataPools();
-  const createPool = useCreateDataPool();
-  const deletePool = useDeleteDataPool();
-  const download = useDownloadAiModel();
-  const load = useLoadAiModel();
-  const ask = useAskDataPool();
-
-  const chatModels = useMemo(
-    () => (models.data ?? []).filter((m) => m.kind === "chat"),
-    [models.data],
-  );
-
-  const [selectedModelId, setSelectedModelId] = useState("");
-  const [activeModelId, setActiveModelId] = useState<string | null>(null);
-  const [downloadPct, setDownloadPct] = useState<number | null>(null);
-  const [busyModel, setBusyModel] = useState(false);
-
-  const [selectedPoolId, setSelectedPoolId] = useState<string | null>(null);
-  const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<PoolAnswer | null>(null);
-  const [showSql, setShowSql] = useState(false);
-
-  // Default the model choice to the hardware recommendation.
-  useEffect(() => {
-    if (!selectedModelId && recommendation.data) {
-      setSelectedModelId(recommendation.data.model_id);
-    }
-  }, [recommendation.data, selectedModelId]);
-
-  async function activateModel(modelId: string) {
-    setBusyModel(true);
-    setDownloadPct(0);
-    const unlisten = await listen<DownloadProgress>(downloadEvent(modelId), (e) => {
-      const { downloaded, total } = e.payload;
-      setDownloadPct(total ? Math.min(100, Math.round((downloaded / total) * 100)) : null);
-    });
-    try {
-      await download.mutateAsync(modelId);
-      setDownloadPct(null);
-      await load.mutateAsync(modelId);
-      setActiveModelId(modelId);
-      toast.success("AI model ready");
-    } catch {
-      // errors are surfaced by the hooks
-    } finally {
-      unlisten();
-      setDownloadPct(null);
-      setBusyModel(false);
-    }
-  }
-
-  async function importPool() {
-    const path = await openDialog({
-      filters: [{ name: "Spreadsheet", extensions: ["csv", "xlsx", "xls"] }],
-    });
-    if (!path || typeof path !== "string") return;
-    const base = path.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "") || "Data pool";
-    const pool = await createPool.mutateAsync({ name: base, file_path: path }).catch(() => null);
-    if (pool) setSelectedPoolId(pool.id);
-  }
-
-  async function onAsk() {
-    if (!selectedPoolId || !question.trim()) return;
-    setAnswer(null);
-    const res = await ask
-      .mutateAsync({ pool_id: selectedPoolId, question: question.trim() })
-      .catch(() => null);
-    if (res) {
-      setAnswer(res);
-      setShowSql(false);
-    }
-  }
-
-  const activePool = pools.data?.find((p) => p.id === selectedPoolId);
-  const canAsk = !!activeModelId && !!selectedPoolId && !!question.trim() && !ask.isPending;
-
-  return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-4xl space-y-6 p-6">
-      <header>
-        <h1 className="flex items-center gap-2 text-2xl font-bold tracking-tight">
-          <Sparkles className="h-6 w-6 text-primary" /> Sales Accelerator
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          Ask questions about your Salesforce data in plain English — runs 100% on your
-          machine, nothing leaves your device.
-        </p>
-      </header>
-
-      {/* ── AI model ─────────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Cpu className="h-4 w-4" /> AI model
-          </CardTitle>
-          <CardDescription>
-            {hardware.data
-              ? `${hardware.data.cpu_brand} · ${formatBytes(hardware.data.total_ram_bytes)} RAM · ${formatBytes(hardware.data.free_disk_bytes)} free`
-              : "Detecting hardware…"}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {recommendation.data && (
-            <p className="text-sm text-muted-foreground">{recommendation.data.rationale}</p>
-          )}
-          <div className="flex flex-wrap gap-2">
-            {chatModels.map((m) => (
-              <button
-                key={m.id}
-                onClick={() => setSelectedModelId(m.id)}
-                className={cn(
-                  "rounded-lg border px-3 py-2 text-left text-sm transition",
-                  selectedModelId === m.id ? "border-primary bg-primary/5" : "hover:bg-accent",
-                )}
-              >
-                <div className="flex items-center gap-1.5 font-medium">
-                  {m.display_name}
-                  {recommendation.data?.model_id === m.id && (
-                    <Badge variant="secondary" className="text-[10px]">
-                      Recommended
-                    </Badge>
-                  )}
-                  {activeModelId === m.id && (
-                    <CheckCircle2 className="h-3.5 w-3.5 text-emerald-500" />
-                  )}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {m.parameters} · {formatBytes(m.approximate_size_bytes)} · {m.licence}
-                </div>
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              onClick={() => selectedModelId && activateModel(selectedModelId)}
-              disabled={busyModel || !selectedModelId || activeModelId === selectedModelId}
-            >
-              {busyModel ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {downloadPct !== null ? `Downloading ${downloadPct}%` : "Preparing…"}
-                </>
-              ) : activeModelId === selectedModelId ? (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" /> Active
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" /> Download &amp; activate
-                </>
-              )}
-            </Button>
-            {activeModelId && (
-              <span className="text-xs text-muted-foreground">Model ready — ask away below.</span>
-            )}
-          </div>
-          {downloadPct !== null && (
-            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full bg-primary transition-all"
-                style={{ width: `${downloadPct}%` }}
-              />
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── Data pools ───────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <div>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Database className="h-4 w-4" /> Data pools
-            </CardTitle>
-            <CardDescription>Import a CSV or Excel export to query it.</CardDescription>
-          </div>
-          <Button size="sm" variant="outline" onClick={importPool} disabled={createPool.isPending}>
-            {createPool.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <Plus className="mr-2 h-4 w-4" />
-            )}
-            Import file
-          </Button>
-        </CardHeader>
-        <CardContent>
-          {pools.data && pools.data.length > 0 ? (
-            <div className="space-y-1.5">
-              {pools.data.map((p) => (
-                <div
-                  key={p.id}
-                  className={cn(
-                    "flex items-center justify-between rounded-lg border px-3 py-2",
-                    selectedPoolId === p.id && "border-primary bg-primary/5",
-                  )}
-                >
-                  <button className="flex-1 text-left" onClick={() => setSelectedPoolId(p.id)}>
-                    <div className="text-sm font-medium">{p.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {p.row_count.toLocaleString()} rows · {p.columns.length} columns
-                    </div>
-                  </button>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => {
-                      deletePool.mutate(p.id);
-                      if (selectedPoolId === p.id) setSelectedPoolId(null);
-                    }}
-                  >
-                    <Trash2 className="h-4 w-4 text-muted-foreground" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No data pools yet. Import a CSV/Excel file to get started.
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* ── Ask ──────────────────────────────────────────────────────────── */}
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">Ask your data</CardTitle>
-          <CardDescription>
-            {!activeModelId
-              ? "Activate a model above first."
-              : !selectedPoolId
-                ? "Select a data pool above."
-                : `Querying "${activePool?.name}".`}
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          <div className="flex gap-2">
-            <Input
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && canAsk) onAsk();
-              }}
-              placeholder="e.g. What are my top 3 largest opportunities in the UK?"
-              disabled={!activeModelId || !selectedPoolId}
-            />
-            <Button onClick={onAsk} disabled={!canAsk}>
-              {ask.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
-
-          {answer && (
-            <div className="space-y-3">
-              <div className="rounded-lg border bg-muted/30 p-4 text-sm leading-relaxed">
-                {answer.answer}
-              </div>
-              <button
-                className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-                onClick={() => setShowSql((s) => !s)}
-              >
-                {showSql ? (
-                  <ChevronDown className="h-3.5 w-3.5" />
-                ) : (
-                  <ChevronRight className="h-3.5 w-3.5" />
-                )}
-                Show the query &amp; data behind this answer
-              </button>
-              {showSql && (
-                <div className="space-y-2">
-                  <pre className="overflow-x-auto rounded-lg bg-muted p-3 text-xs">
-                    <code>{answer.sql}</code>
-                  </pre>
-                  <ResultTable
-                    columns={answer.columns}
-                    rows={answer.rows}
-                    truncated={answer.truncated}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-      </div>
     </div>
   );
 }

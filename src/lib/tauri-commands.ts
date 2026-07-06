@@ -614,6 +614,10 @@ export const loadAiModel = (modelId: string): Promise<void> =>
 export const cancelAiGeneration = (): Promise<void> =>
   invoke("cancel_ai_generation");
 
+/** The currently-loaded (active) model id, or null if none is loaded this session. */
+export const getActiveAiModel = (): Promise<string | null> =>
+  invoke("get_active_ai_model");
+
 // ── Sales Accelerator: data pools ─────────────────────────────────────────────
 
 export interface DataPool {

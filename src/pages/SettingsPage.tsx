@@ -14,6 +14,7 @@ import {
   Moon,
   Monitor,
   CalendarDays,
+  Sparkles,
 } from "lucide-react";
 import { save as saveDialog, open as openDialog } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
@@ -41,16 +42,25 @@ import {
   useLicenseStatus,
   useDeactivateLicense,
   useMachineFingerprint,
+  useSalesAccelerator,
 } from "@/hooks/useLicense";
+import ModelManager from "@/components/assistant/ModelManager";
 import UpcellsLogo from "@/components/layout/UpcellsLogo";
 import { cn } from "@/lib/utils";
 import type { ImportSavedQueriesResult } from "@/lib/tauri-commands";
 
-type SettingsTab = "orgs" | "queries" | "preferences" | "license" | "about";
+type SettingsTab =
+  | "orgs"
+  | "queries"
+  | "assistant"
+  | "preferences"
+  | "license"
+  | "about";
 
 const tabs: { id: SettingsTab; label: string; icon: typeof Cable }[] = [
   { id: "orgs", label: "Salesforce Orgs", icon: Cable },
   { id: "queries", label: "Saved Queries", icon: FileText },
+  { id: "assistant", label: "AI Assistant", icon: Sparkles },
   { id: "preferences", label: "Preferences", icon: SlidersHorizontal },
   { id: "license", label: "License", icon: KeyRound },
   { id: "about", label: "About", icon: Info },
@@ -58,6 +68,9 @@ const tabs: { id: SettingsTab; label: string; icon: typeof Cable }[] = [
 
 export default function SettingsPage() {
   const [tab, setTab] = useState<SettingsTab>("orgs");
+  const salesAccelerator = useSalesAccelerator();
+  // The AI Assistant tab is only shown for licences with the tier.
+  const visibleTabs = tabs.filter((t) => t.id !== "assistant" || salesAccelerator);
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
@@ -72,7 +85,7 @@ export default function SettingsPage() {
       {/* Tabs */}
       <div className="border-b px-6">
         <div className="flex gap-1">
-          {tabs.map(({ id, label, icon: Icon }) => (
+          {visibleTabs.map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               onClick={() => setTab(id)}
@@ -94,6 +107,7 @@ export default function SettingsPage() {
       <div className="flex-1 overflow-y-auto">
         {tab === "orgs" && <OrgsTab />}
         {tab === "queries" && <SavedQueriesTab />}
+        {tab === "assistant" && <AiAssistantTab />}
         {tab === "preferences" && <PreferencesTab />}
         {tab === "license" && <LicenseTab />}
         {tab === "about" && <AboutTab />}
@@ -377,6 +391,25 @@ function SavedQueriesTab() {
             their own Upcells app.
           </p>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ── AI Assistant tab ──────────────────────────────────────────────────────────
+
+function AiAssistantTab() {
+  return (
+    <div className="p-6">
+      <div className="max-w-2xl space-y-4">
+        <div>
+          <h2 className="text-sm font-semibold">Local AI model</h2>
+          <p className="text-xs text-muted-foreground">
+            Powers the Sales Accelerator assistant. Models run entirely on your machine —
+            your data never leaves your device.
+          </p>
+        </div>
+        <ModelManager />
       </div>
     </div>
   );

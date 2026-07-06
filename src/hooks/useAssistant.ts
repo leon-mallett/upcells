@@ -5,6 +5,7 @@ import {
   createDataPool,
   deleteDataPool,
   downloadAiModel,
+  getActiveAiModel,
   getAiHardwareInfo,
   listAiModels,
   listDataPools,
@@ -18,6 +19,7 @@ import { errMsg } from "./useQueries";
 export const aiModelsKey = ["ai_models"] as const;
 export const aiHardwareKey = ["ai_hardware"] as const;
 export const aiRecommendationKey = ["ai_recommendation"] as const;
+export const activeModelKey = ["active_ai_model"] as const;
 export const dataPoolsKey = ["data_pools"] as const;
 
 // ── Models ────────────────────────────────────────────────────────────────────
@@ -34,6 +36,11 @@ export function useAiRecommendation() {
   return useQuery({ queryKey: aiRecommendationKey, queryFn: recommendAiModel });
 }
 
+/** The currently-active (loaded) model id, or null. */
+export function useActiveAiModel() {
+  return useQuery({ queryKey: activeModelKey, queryFn: getActiveAiModel });
+}
+
 /** Download a model. Progress arrives on `model:download:{id}` events — listen in the UI. */
 export function useDownloadAiModel() {
   return useMutation({
@@ -43,8 +50,10 @@ export function useDownloadAiModel() {
 }
 
 export function useLoadAiModel() {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: (modelId: string) => loadAiModel(modelId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: activeModelKey }),
     onError: (e) => toast.error(`Couldn't load model: ${errMsg(e)}`),
   });
 }

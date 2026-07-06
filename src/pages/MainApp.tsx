@@ -8,7 +8,7 @@ import {
 } from "@tanstack/react-router";
 import AppShell from "@/components/layout/AppShell";
 import DashboardPage from "./DashboardPage";
-import QueriesPage from "./QueriesPage";
+import SalesDataPage from "./SalesDataPage";
 import ImportPage from "./ImportPage";
 import HistoryPage from "./HistoryPage";
 import AdminPage from "./AdminPage";
@@ -39,7 +39,7 @@ const dashboardRoute = createRoute({
 const dataRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/data",
-  component: QueriesPage,
+  component: SalesDataPage,
   validateSearch: (search: Record<string, unknown>): { q?: string } => ({
     q: typeof search.q === "string" ? search.q : undefined,
   }),

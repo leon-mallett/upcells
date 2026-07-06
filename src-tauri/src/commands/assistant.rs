@@ -194,6 +194,13 @@ pub fn cancel_ai_generation(state: State<'_, Arc<AiState>>) {
     }
 }
 
+/// The id of the currently-loaded (active) model, if any — so the Assistant knows a model
+/// activated in Settings is ready.
+#[tauri::command]
+pub fn get_active_ai_model(state: State<'_, Arc<AiState>>) -> Option<String> {
+    state.current().and_then(|engine| engine.loaded_model_id())
+}
+
 // ── Data pools ───────────────────────────────────────────────────────────────
 
 /// Where pool DuckDB files live.
