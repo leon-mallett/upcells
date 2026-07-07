@@ -47,6 +47,11 @@ base64 = "0.22"
 url = "2"
 sysinfo = { version = "0.32", default-features = false, features = ["system", "disk"] }
 duckdb = { version = "=1.10504.0", features = ["bundled"] }
+sqlite-vec = "0.1.9"
+pdf-extract = "0.12.0"
+docx-rs = "0.4.20"
+dom_smoothie = "0.18.0"
+robotstxt = "0.3.0"
 
 [features]
 default = ["custom-protocol"]
