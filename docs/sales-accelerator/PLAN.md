@@ -98,8 +98,9 @@ src/
 ### Phase 4 — Semantic RAG + prospecting + web import (scope: files + single-page web, in the Assistant)
 - [x] Deps vetted + added (2026-07-07): `sqlite-vec` 0.1.9, `pdf-extract` 0.12, `docx-rs` 0.4, `dom_smoothie` 0.18, `robotstxt` 0.3 (all MIT/Apache, no RUSTSEC). Web scoped to single-page (no `scraper` crawler). Full stack builds clean.
 - [x] Embeddings: `engine.embed()` via llama-cpp-2 embedding mode (nomic-embed, mean-pooled, 768d, L2-normalised); warm embedding slot separate from chat. Verified vs real nomic: sim(related)=0.72 > sim(unrelated)=0.35.
-- [ ] `sqlite-vec` vector store (vec0 table, registered at startup) + knowledge-base schema (documents + chunks)
-- [ ] Chunking + extractors (pdf/docx/txt/md; single-page web via reqwest + dom_smoothie + robotstxt)
+- [x] `sqlite-vec` vector store: registered at startup (auto-extension), migration 003 (knowledge_sources + knowledge_chunks + vec0 `vec_chunks`); `knowledge::store` (insert_chunk / delete_source_chunks / KNN search via CTE). Verified nearest-neighbour retrieval.
+- [x] Chunking (`knowledge::chunk`, word-based greedy w/ overlap) + file extractors (`knowledge::extract` — PDF via pdf-extract, DOCX via docx-rs paragraphs, TXT/MD direct). Tested.
+- [ ] Single-page web extractor (reqwest + dom_smoothie + robotstxt) + ingestion pipeline (extract → chunk → embed → store) + source CRUD
 - [ ] Retrieval (embed query → MATCH → top-k) + prospecting generation grounded in passages (citations)
 - [ ] Polite crawler (reqwest + scraper + robotstxt); reranker as **reorderer only**, never a filter
 

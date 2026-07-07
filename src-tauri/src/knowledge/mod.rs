@@ -5,4 +5,6 @@
 //! (files + single-page web), ingestion, and retrieval-grounded generation follow.
 #![allow(dead_code)] // wired up incrementally through Phase 4
 
+pub mod chunk;
+pub mod extract;
 pub mod store;
