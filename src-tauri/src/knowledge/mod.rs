@@ -7,4 +7,5 @@
 
 pub mod chunk;
 pub mod extract;
+pub mod ingest;
 pub mod store;

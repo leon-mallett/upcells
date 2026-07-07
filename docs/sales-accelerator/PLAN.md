@@ -100,8 +100,8 @@ src/
 - [x] Embeddings: `engine.embed()` via llama-cpp-2 embedding mode (nomic-embed, mean-pooled, 768d, L2-normalised); warm embedding slot separate from chat. Verified vs real nomic: sim(related)=0.72 > sim(unrelated)=0.35.
 - [x] `sqlite-vec` vector store: registered at startup (auto-extension), migration 003 (knowledge_sources + knowledge_chunks + vec0 `vec_chunks`); `knowledge::store` (insert_chunk / delete_source_chunks / KNN search via CTE). Verified nearest-neighbour retrieval.
 - [x] Chunking (`knowledge::chunk`, word-based greedy w/ overlap) + file extractors (`knowledge::extract` — PDF via pdf-extract, DOCX via docx-rs paragraphs, TXT/MD direct). Tested.
-- [ ] Single-page web extractor (reqwest + dom_smoothie + robotstxt) + ingestion pipeline (extract → chunk → embed → store) + source CRUD
-- [ ] Retrieval (embed query → MATCH → top-k) + prospecting generation grounded in passages (citations)
+- [x] Single-page web extractor (`extract_url` — reqwest + dom_smoothie readability + robots.txt honoured) + ingestion (`knowledge::ingest`: embed_chunks → store_source in one txn; embedding done before the DB lock) + retrieval (`retrieve`: embed query → KNN). Verified end-to-end vs real nomic (product query retrieves the product source, not the policy).
+- [ ] Commands (ensure embedding model downloaded/loaded; add file/url source; list/delete sources; prospecting generation) + prospecting UI in the Assistant (grounded content with citations)
 - [ ] Polite crawler (reqwest + scraper + robotstxt); reranker as **reorderer only**, never a filter
 
 ## Open items / risks
