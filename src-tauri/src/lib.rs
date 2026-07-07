@@ -6,6 +6,7 @@ mod export;
 mod import;
 mod inference;
 mod keychain;
+mod knowledge;
 mod license;
 mod salesforce;
 mod sync;

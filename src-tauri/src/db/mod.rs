@@ -2,7 +2,7 @@ pub mod models;
 
 use rusqlite::{Connection, Result as SqlResult};
 use std::path::Path;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Once};
 
 pub type DbConnection = Arc<Mutex<Connection>>;
 
@@ -11,9 +11,23 @@ pub type DbConnection = Arc<Mutex<Connection>>;
 const MIGRATIONS: &[(i64, &str)] = &[
     (1, include_str!("migrations/001_initial.sql")),
     (2, include_str!("migrations/002_data_pools.sql")),
+    (3, include_str!("migrations/003_knowledge.sql")),
 ];
 
+/// Register the `sqlite-vec` extension so `vec0` virtual tables + vector functions are available
+/// on every connection opened afterwards. Must run before opening the app connection (the
+/// knowledge migration creates a `vec0` table). Idempotent.
+pub fn register_vec_extension() {
+    static VEC_INIT: Once = Once::new();
+    VEC_INIT.call_once(|| unsafe {
+        rusqlite::ffi::sqlite3_auto_extension(Some(std::mem::transmute(
+            sqlite_vec::sqlite3_vec_init as *const (),
+        )));
+    });
+}
+
 pub fn open(data_dir: &Path) -> SqlResult<DbConnection> {
+    register_vec_extension();
     std::fs::create_dir_all(data_dir).ok();
     let db_path = data_dir.join("upcells.db");
     let conn = Connection::open(&db_path)?;
