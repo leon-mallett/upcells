@@ -13,6 +13,10 @@
  *   KEYGEN_POLICY_ID     — the policy ID for "Standard" licences
  *   POLAR_WEBHOOK_SECRET — the webhook signing secret from Polar
  *   RESEND_API_KEY       — (optional) Resend API key for emailing the licence key
+ *   POLAR_SALES_ACCELERATOR_PRODUCT_IDS — (optional) comma-separated Polar product ID(s)
+ *       that grant the Sales Accelerator tier. Orders for these products get
+ *       metadata.salesAccelerator=true on the Keygen licence (the flag the app reads).
+ *       Leave unset for standard-only.
  */
 
 export default {
@@ -57,10 +61,13 @@ export default {
       return new Response("No customer email", { status: 200 });
     }
 
+    // Does this order include the Sales Accelerator tier?
+    const salesAccelerator = orderGrantsSalesAccelerator(order, env);
+
     // ── Create Keygen licence ─────────────────────────────────────────────
     let licenceKey;
     try {
-      licenceKey = await createKeygenLicence(env, customerEmail, customerName);
+      licenceKey = await createKeygenLicence(env, customerEmail, customerName, salesAccelerator);
     } catch (err) {
       console.error("Keygen licence creation failed:", err.message);
       return new Response("Keygen error: " + err.message, { status: 500 });
@@ -69,7 +76,7 @@ export default {
     // ── Email the key (optional — only if RESEND_API_KEY is set) ──────────
     if (env.RESEND_API_KEY && licenceKey) {
       try {
-        await sendLicenceEmail(env.RESEND_API_KEY, customerEmail, customerName, licenceKey);
+        await sendLicenceEmail(env.RESEND_API_KEY, customerEmail, customerName, licenceKey, salesAccelerator);
         console.log("Licence key emailed to", customerEmail);
       } catch (err) {
         // Don't fail the webhook if email fails — the key is still in Keygen
@@ -77,15 +84,30 @@ export default {
       }
     }
 
-    console.log("Licence created for", customerEmail, "— key starts with", licenceKey?.substring(0, 10));
+    console.log(
+      "Licence created for",
+      customerEmail,
+      salesAccelerator ? "(Sales Accelerator)" : "(Standard)",
+      "— key starts with",
+      licenceKey?.substring(0, 10)
+    );
     return new Response("OK", { status: 200 });
   },
 };
 
 // ── Keygen licence creation ───────────────────────────────────────────────────
 
-async function createKeygenLicence(env, email, name) {
+async function createKeygenLicence(env, email, name, salesAccelerator = false) {
   const url = `https://api.keygen.sh/v1/accounts/${env.KEYGEN_ACCOUNT_ID}/licenses`;
+
+  const metadata = {
+    customerEmail: email,
+    customerName: name,
+  };
+  // The app gates the Sales Accelerator tier on this flag (LicenseInfo.sales_accelerator).
+  if (salesAccelerator) {
+    metadata.salesAccelerator = true;
+  }
 
   const resp = await fetch(url, {
     method: "POST",
@@ -97,12 +119,7 @@ async function createKeygenLicence(env, email, name) {
     body: JSON.stringify({
       data: {
         type: "licenses",
-        attributes: {
-          metadata: {
-            customerEmail: email,
-            customerName: name,
-          },
-        },
+        attributes: { metadata },
         relationships: {
           policy: {
             data: { type: "policies", id: env.KEYGEN_POLICY_ID },
@@ -119,6 +136,36 @@ async function createKeygenLicence(env, email, name) {
 
   const json = await resp.json();
   return json.data.attributes.key;
+}
+
+// ── Tier detection ─────────────────────────────────────────────────────────────
+
+/** Whether the order's product is configured to grant the Sales Accelerator tier. */
+function orderGrantsSalesAccelerator(order, env) {
+  const configured = (env.POLAR_SALES_ACCELERATOR_PRODUCT_IDS || "")
+    .split(",")
+    .map((s) => s.trim())
+    .filter(Boolean);
+  if (configured.length === 0) return false;
+
+  const ids = collectProductIds(order);
+  return configured.some((id) => ids.has(id));
+}
+
+/** Collect every product id referenced by a Polar order, across the shapes Polar may use. */
+function collectProductIds(order) {
+  const ids = new Set();
+  const add = (v) => {
+    if (v) ids.add(String(v));
+  };
+  add(order.product_id);
+  add(order.product?.id);
+  for (const item of order.items || order.line_items || []) {
+    add(item.product_id);
+    add(item.product?.id);
+    add(item.price?.product_id);
+  }
+  return ids;
 }
 
 // ── Webhook signature verification (Standard Webhooks / Svix format) ──────────
@@ -175,7 +222,7 @@ async function verifyWebhook(headers, body, secret) {
 
 // ── Email delivery via Resend ─────────────────────────────────────────────────
 
-async function sendLicenceEmail(apiKey, toEmail, name, licenceKey) {
+async function sendLicenceEmail(apiKey, toEmail, name, licenceKey, salesAccelerator = false) {
   const resp = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -193,6 +240,11 @@ async function sendLicenceEmail(apiKey, toEmail, name, licenceKey) {
           <div style="background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; word-break: break-all; margin-bottom: 24px;">
             ${licenceKey}
           </div>
+          ${
+            salesAccelerator
+              ? `<p style="color: #666; font-size: 14px; margin-bottom: 24px;">Your licence includes the <strong>Sales Accelerator</strong> — a private, on-device AI assistant for your Salesforce data.</p>`
+              : ""
+          }
           <p style="color: #666; font-size: 14px; margin-bottom: 16px;"><strong>To activate:</strong></p>
           <ol style="color: #666; font-size: 14px; padding-left: 20px; margin-bottom: 24px;">
             <li>Open Upcells</li>
