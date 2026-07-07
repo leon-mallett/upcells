@@ -707,3 +707,46 @@ export const generateReport = (args: {
     template: args.template ?? null,
     request: args.request ?? null,
   });
+
+// ── Knowledge base (RAG / prospecting) ────────────────────────────────────────
+
+export interface KnowledgeSource {
+  id: string;
+  name: string;
+  kind: string; // 'file' | 'url'
+  location: string | null;
+  chunk_count: number;
+  created_at: number;
+}
+
+/** Payload of `knowledge:progress` events while a source is ingested. */
+export interface KnowledgeProgress {
+  done: number;
+  total: number;
+}
+
+export interface Citation {
+  source_id: string;
+  source_name: string;
+  snippet: string;
+}
+
+export interface ProspectingResult {
+  content: string;
+  citations: Citation[];
+}
+
+export const addKnowledgeFile = (filePath: string): Promise<KnowledgeSource> =>
+  invoke("add_knowledge_file", { filePath });
+
+export const addKnowledgeUrl = (url: string): Promise<KnowledgeSource> =>
+  invoke("add_knowledge_url", { url });
+
+export const listKnowledgeSources = (): Promise<KnowledgeSource[]> =>
+  invoke("list_knowledge_sources");
+
+export const deleteKnowledgeSource = (sourceId: string): Promise<void> =>
+  invoke("delete_knowledge_source", { sourceId });
+
+export const writeProspecting = (brief: string): Promise<ProspectingResult> =>
+  invoke("write_prospecting", { brief });

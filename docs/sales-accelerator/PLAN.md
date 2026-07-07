@@ -102,7 +102,7 @@ src/
 - [x] Chunking (`knowledge::chunk`, word-based greedy w/ overlap) + file extractors (`knowledge::extract` — PDF via pdf-extract, DOCX via docx-rs paragraphs, TXT/MD direct). Tested.
 - [x] Single-page web extractor (`extract_url` — reqwest + dom_smoothie readability + robots.txt honoured) + ingestion (`knowledge::ingest`: embed_chunks → store_source in one txn; embedding done before the DB lock) + retrieval (`retrieve`: embed query → KNN). Verified end-to-end vs real nomic (product query retrieves the product source, not the policy).
 - [x] Commands (`commands::knowledge`): `ensure_embedding_model` (auto-downloads/loads nomic on first use), `add_knowledge_file`/`add_knowledge_url` (progress on `knowledge:progress`), `list`/`delete_knowledge_source`, `write_prospecting` (retrieve → grounded draft + citations). Builds clean.
-- [ ] Prospecting UI in the Assistant (manage sources + a prospecting mode; grounded draft with citations)
+- [x] Prospecting UI: Assistant gains an "Ask & report | Prospecting" toggle. `ProspectingPanel` manages source material (add file/URL via `dialog`, list, delete, live indexing state) and drafts grounded outreach from a brief, showing the draft + numbered source citations. Typecheck + vite build clean.
 - [ ] Polite crawler (reqwest + scraper + robotstxt); reranker as **reorderer only**, never a filter
 
 ## Open items / risks

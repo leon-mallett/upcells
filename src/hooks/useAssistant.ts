@@ -1,18 +1,23 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import {
+  addKnowledgeFile,
+  addKnowledgeUrl,
   askDataPool,
   createDataPool,
   createDataPoolFromResults,
   deleteDataPool,
+  deleteKnowledgeSource,
   downloadAiModel,
   generateReport,
   getActiveAiModel,
   getAiHardwareInfo,
   listAiModels,
   listDataPools,
+  listKnowledgeSources,
   loadAiModel,
   recommendAiModel,
+  writeProspecting,
 } from "@/lib/tauri-commands";
 import { errMsg } from "./useQueries";
 
@@ -23,6 +28,7 @@ export const aiHardwareKey = ["ai_hardware"] as const;
 export const aiRecommendationKey = ["ai_recommendation"] as const;
 export const activeModelKey = ["active_ai_model"] as const;
 export const dataPoolsKey = ["data_pools"] as const;
+export const knowledgeSourcesKey = ["knowledge_sources"] as const;
 
 // ── Models ────────────────────────────────────────────────────────────────────
 
@@ -107,6 +113,52 @@ export function useGenerateReport() {
     mutationFn: (args: { pool_id: string; template?: string; request?: string }) =>
       generateReport(args),
     onError: (e) => toast.error(`Report failed: ${errMsg(e)}`),
+  });
+}
+
+// ── Knowledge base (RAG / prospecting) ────────────────────────────────────────
+
+export function useKnowledgeSources() {
+  return useQuery({ queryKey: knowledgeSourcesKey, queryFn: listKnowledgeSources });
+}
+
+export function useAddKnowledgeFile() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (filePath: string) => addKnowledgeFile(filePath),
+    onSuccess: (s) => {
+      qc.invalidateQueries({ queryKey: knowledgeSourcesKey });
+      toast.success(`Added "${s.name}" (${s.chunk_count} chunks)`);
+    },
+    onError: (e) => toast.error(`Couldn't add source: ${errMsg(e)}`),
+  });
+}
+
+export function useAddKnowledgeUrl() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (url: string) => addKnowledgeUrl(url),
+    onSuccess: (s) => {
+      qc.invalidateQueries({ queryKey: knowledgeSourcesKey });
+      toast.success(`Added "${s.name}" (${s.chunk_count} chunks)`);
+    },
+    onError: (e) => toast.error(`Couldn't add page: ${errMsg(e)}`),
+  });
+}
+
+export function useDeleteKnowledgeSource() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (sourceId: string) => deleteKnowledgeSource(sourceId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: knowledgeSourcesKey }),
+    onError: (e) => toast.error(`Couldn't delete source: ${errMsg(e)}`),
+  });
+}
+
+export function useWriteProspecting() {
+  return useMutation({
+    mutationFn: (brief: string) => writeProspecting(brief),
+    onError: (e) => toast.error(`Couldn't write that: ${errMsg(e)}`),
   });
 }
 

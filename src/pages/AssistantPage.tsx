@@ -31,6 +31,7 @@ import {
   useGenerateReport,
 } from "@/hooks/useAssistant";
 import { useSalesAccelerator } from "@/hooks/useLicense";
+import ProspectingPanel from "@/components/assistant/ProspectingPanel";
 import type { PoolAnswer, Report, ReportProgress } from "@/lib/tauri-commands";
 
 type QaTurn = { kind: "qa"; question: string; answer: PoolAnswer | null };
@@ -50,7 +51,6 @@ const IDEAS: { label: string; kind: "query" | "soon"; text?: string }[] = [
     kind: "query",
     text: "Which accounts have the most opportunities?",
   },
-  { label: "Write an email for my prospect", kind: "soon" },
 ];
 
 const REPORT_TEMPLATES: { id: string; label: string }[] = [
@@ -76,6 +76,7 @@ function AssistantFeature() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [reportMode, setReportMode] = useState(false);
   const [reportStep, setReportStep] = useState<string | null>(null);
+  const [view, setView] = useState<"chat" | "prospecting">("chat");
 
   const modelReady = !!activeModel.data;
   const busy = ask.isPending || report.isPending;
@@ -140,6 +141,17 @@ function AssistantFeature() {
           </p>
         </header>
 
+        {modelReady && (
+          <div className="flex gap-1 border-b pb-1.5">
+            <ViewTab active={view === "chat"} onClick={() => setView("chat")} label="Ask & report" />
+            <ViewTab
+              active={view === "prospecting"}
+              onClick={() => setView("prospecting")}
+              label="Prospecting"
+            />
+          </div>
+        )}
+
         {!modelReady ? (
           <Card>
             <CardHeader className="pb-3">
@@ -156,6 +168,10 @@ function AssistantFeature() {
               </Link>
             </CardContent>
           </Card>
+        ) : view === "prospecting" ? (
+          <div className="flex-1">
+            <ProspectingPanel />
+          </div>
         ) : poolList.length === 0 ? (
           <Card>
             <CardHeader className="pb-3">
@@ -304,6 +320,28 @@ function AssistantFeature() {
         )}
       </div>
     </div>
+  );
+}
+
+function ViewTab({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        "rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+        active ? "bg-accent text-accent-foreground" : "text-muted-foreground hover:bg-accent/50",
+      )}
+    >
+      {label}
+    </button>
   );
 }
 
