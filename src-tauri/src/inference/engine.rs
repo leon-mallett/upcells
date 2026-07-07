@@ -14,7 +14,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Mutex;
 
-use llama_cpp_2::context::params::LlamaContextParams;
+use llama_cpp_2::context::params::{LlamaContextParams, LlamaPoolingType};
 use llama_cpp_2::llama_backend::LlamaBackend;
 use llama_cpp_2::llama_batch::LlamaBatch;
 use llama_cpp_2::model::params::LlamaModelParams;
@@ -60,10 +60,12 @@ struct LoadedModel {
     n_ctx: u32,
 }
 
-/// The inference engine. Holds the backend and one warm chat model for the session.
+/// The inference engine. Holds the backend, a warm chat model, and a warm embedding model.
 pub struct InferenceEngine {
     backend: LlamaBackend,
     model: Mutex<Option<LoadedModel>>,
+    /// Warm embedding model (nomic) for RAG — separate slot from chat.
+    embedding_model: Mutex<Option<LoadedModel>>,
     /// Flipped by [`cancel`](Self::cancel); checked every token in the sampler loop.
     cancel: AtomicBool,
 }
@@ -76,6 +78,7 @@ impl InferenceEngine {
         Ok(Self {
             backend,
             model: Mutex::new(None),
+            embedding_model: Mutex::new(None),
             cancel: AtomicBool::new(false),
         })
     }
@@ -125,6 +128,74 @@ impl InferenceEngine {
             .map_err(|_| AppError::inference("model lock poisoned"))?;
         *slot = Some(LoadedModel { id: id.to_string(), model, n_ctx });
         Ok(())
+    }
+
+    /// Whether an embedding model with `id` is loaded.
+    pub fn is_embedding_model_loaded(&self, id: &str) -> bool {
+        self.embedding_model
+            .lock()
+            .map(|m| m.as_ref().is_some_and(|l| l.id == id))
+            .unwrap_or(false)
+    }
+
+    /// Load a GGUF embedding model (e.g. nomic-embed) into the warm embedding slot.
+    pub fn load_embedding_model(&self, id: &str, path: &Path) -> AppResult<()> {
+        let model_params = LlamaModelParams::default().with_n_gpu_layers(default_gpu_layers());
+        let model = LlamaModel::load_from_file(&self.backend, path, &model_params)
+            .map_err(|e| AppError::inference(format!("failed to load embedding model '{id}': {e}")))?;
+        // Embeddings don't need a huge context.
+        let n_ctx = model.n_ctx_train().clamp(N_CTX_FLOOR, 2048);
+        let mut slot = self
+            .embedding_model
+            .lock()
+            .map_err(|_| AppError::inference("embedding lock poisoned"))?;
+        *slot = Some(LoadedModel { id: id.to_string(), model, n_ctx });
+        Ok(())
+    }
+
+    /// Embed `text` into a unit-normalised vector using the warm embedding model (mean-pooled).
+    /// Returns L2-normalised values so cosine similarity is a dot product.
+    pub fn embed(&self, text: &str) -> AppResult<Vec<f32>> {
+        let slot = self
+            .embedding_model
+            .lock()
+            .map_err(|_| AppError::inference("embedding lock poisoned"))?;
+        let loaded = slot
+            .as_ref()
+            .ok_or_else(|| AppError::inference("no embedding model loaded"))?;
+        let model = &loaded.model;
+        let n_ctx = loaded.n_ctx;
+
+        let ctx_params = LlamaContextParams::default()
+            .with_n_ctx(NonZeroU32::new(n_ctx))
+            .with_n_batch(n_ctx)
+            .with_embeddings(true)
+            .with_pooling_type(LlamaPoolingType::Mean);
+        let mut ctx = model
+            .new_context(&self.backend, ctx_params)
+            .map_err(|e| AppError::inference(format!("embedding context failed: {e}")))?;
+
+        let mut tokens = model
+            .str_to_token(text, AddBos::Always)
+            .map_err(|e| AppError::inference(format!("tokenize failed: {e}")))?;
+        if tokens.is_empty() {
+            return Err(AppError::inference("nothing to embed"));
+        }
+        tokens.truncate(n_ctx as usize);
+
+        let mut batch = LlamaBatch::new(n_ctx as usize, 1);
+        batch
+            .add_sequence(&tokens, 0, false)
+            .map_err(|e| AppError::inference(format!("batch add failed: {e}")))?;
+        ctx.decode(&mut batch)
+            .map_err(|e| AppError::inference(format!("embedding decode failed: {e}")))?;
+
+        let embedding = ctx
+            .embeddings_seq_ith(0)
+            .map_err(|e| AppError::inference(format!("no embedding produced: {e}")))?;
+        let mut vector = embedding.to_vec();
+        l2_normalise(&mut vector);
+        Ok(vector)
     }
 
     /// Generate a completion for `prompt`, invoking `on_token` with each decoded piece as it
@@ -251,6 +322,16 @@ fn flush_utf8(pending: &mut Vec<u8>) -> String {
     }
 }
 
+/// Normalise a vector in place to unit L2 length (so cosine similarity ≡ dot product).
+fn l2_normalise(v: &mut [f32]) {
+    let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm > 0.0 {
+        for x in v.iter_mut() {
+            *x /= norm;
+        }
+    }
+}
+
 /// GPU layer offload: all layers on GPU builds (Apple Silicon here), none on CPU builds.
 fn default_gpu_layers() -> u32 {
     if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
@@ -320,5 +401,28 @@ mod tests {
             .expect("generation should succeed");
         eprintln!("\n[smoke] full output: {text:?}");
         assert!(!text.trim().is_empty(), "should produce non-empty output");
+    }
+
+    /// Opt-in embedding smoke test — related texts should be more similar than unrelated ones.
+    /// `UPCELLS_SMOKE_EMBED_GGUF=/path/nomic.gguf cargo test --lib inference::engine::tests::smoke_embed -- --ignored --nocapture`
+    #[test]
+    #[ignore = "requires an embedding GGUF via UPCELLS_SMOKE_EMBED_GGUF"]
+    fn smoke_embed() {
+        let path = std::env::var("UPCELLS_SMOKE_EMBED_GGUF").expect("set UPCELLS_SMOKE_EMBED_GGUF");
+        let engine = InferenceEngine::new().expect("backend init");
+        engine.load_embedding_model("nomic", Path::new(&path)).expect("load embedding model");
+
+        let a = engine.embed("Our product helps sales teams close deals faster.").unwrap();
+        let b = engine.embed("A tool for salespeople to win more opportunities.").unwrap();
+        let c = engine.embed("The weather in Paris is rainy today.").unwrap();
+
+        let norm = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+        assert!((norm - 1.0).abs() < 0.02, "embedding should be unit-normalised");
+
+        let cos = |x: &[f32], y: &[f32]| x.iter().zip(y).map(|(p, q)| p * q).sum::<f32>();
+        let ab = cos(&a, &b);
+        let ac = cos(&a, &c);
+        eprintln!("[embed] dim={} sim(related)={ab:.3} sim(unrelated)={ac:.3}", a.len());
+        assert!(ab > ac, "related texts should be more similar than unrelated");
     }
 }
