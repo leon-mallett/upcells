@@ -87,6 +87,7 @@ pub fn run() {
             commands::list_data_pools,
             commands::delete_data_pool,
             commands::ask_data_pool,
+            commands::generate_report,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Upcells");

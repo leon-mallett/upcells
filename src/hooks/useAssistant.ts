@@ -6,6 +6,7 @@ import {
   createDataPoolFromResults,
   deleteDataPool,
   downloadAiModel,
+  generateReport,
   getActiveAiModel,
   getAiHardwareInfo,
   listAiModels,
@@ -97,6 +98,15 @@ export function useDeleteDataPool() {
     mutationFn: (poolId: string) => deleteDataPool(poolId),
     onSuccess: () => qc.invalidateQueries({ queryKey: dataPoolsKey }),
     onError: (e) => toast.error(`Couldn't delete pool: ${errMsg(e)}`),
+  });
+}
+
+/** Generate a report (template or freeform). Progress arrives on `report:progress` events. */
+export function useGenerateReport() {
+  return useMutation({
+    mutationFn: (args: { pool_id: string; template?: string; request?: string }) =>
+      generateReport(args),
+    onError: (e) => toast.error(`Report failed: ${errMsg(e)}`),
   });
 }
 

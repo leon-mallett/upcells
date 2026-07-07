@@ -87,9 +87,10 @@ src/
 - [x] Conversational memory: the frontend owns the turn history and passes prior `{question, sql}` pairs (last 6) into the SQL prompt so follow-ups resolve ("And for the US?" → `WHERE "Region"='US'`). Verified vs real Qwen3.5 4B. History cleared on pool switch; a "New chat" resets it. (Narration stays grounded in the current result only.)
 
 ### Phase 2 — Report writer
-- [ ] Streaming structured-document output (JSON-extractor in `on_token`, §2.4/§5)
-- [ ] Compute figures via SQL and inject — never transcribe from memory
-- [ ] Management-report templates over closed-won
+- [x] `data_pool::report`: metric questions (from a template or LLM-derived from a freeform request) → each answered via the existing text-to-SQL → **narrative grounded strictly in the computed figures** (compute-and-inject, never transcribe). Returns narrative + each metric's SQL/result (auditable). Verified end-to-end vs real Qwen3.5 4B.
+- [x] Templates: `pipeline_summary` / `activity_report` / `win_loss` (generic metrics that adapt to the pool's columns; non-applicable ones skipped). `generate_report` command emits `report:progress` events.
+- [x] UI: in the Assistant — reports bar (template chips + "Custom…" freeform mode); reports render as rich turns (title + narrative + collapsible figures/queries). Both/in-chat, per the chosen IA.
+- [ ] Enhancements: streaming the narrative (`on_token`), markdown rendering (react-markdown), export/save.
 
 ### Phase 3 — Coaching / strategy
 - [ ] Lightweight persona chat

@@ -12,6 +12,7 @@ use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::data_pool::import::{import_csv, import_rows, import_xlsx};
 use crate::data_pool::query::{answer_question, narrate, PriorTurn};
+use crate::data_pool::report::{self, Report};
 use crate::data_pool::schema::capture_schema;
 use crate::data_pool::{self};
 use crate::db::models::DataPool;
@@ -199,6 +200,62 @@ pub fn cancel_ai_generation(state: State<'_, Arc<AiState>>) {
 #[tauri::command]
 pub fn get_active_ai_model(state: State<'_, Arc<AiState>>) -> Option<String> {
     state.current().and_then(|engine| engine.loaded_model_id())
+}
+
+/// Progress payload emitted on the `report:progress` event while a report is generated.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReportProgress {
+    pub step: String,
+}
+
+/// Generate a report over a pool from a template id or a freeform request. Emits progress on
+/// the `report:progress` event as it computes each metric.
+#[tauri::command]
+pub async fn generate_report(
+    app: AppHandle,
+    db: State<'_, DbConnection>,
+    state: State<'_, Arc<AiState>>,
+    pool_id: String,
+    template: Option<String>,
+    request: Option<String>,
+) -> Result<Report, AppError> {
+    {
+        let conn = db.lock().map_err(|_| AppError::db("DB lock poisoned"))?;
+        let exists = conn
+            .query_row(
+                "SELECT 1 FROM data_pools WHERE id = ?1",
+                rusqlite::params![pool_id],
+                |_| Ok(()),
+            )
+            .is_ok();
+        if !exists {
+            return Err(AppError::validation("data pool not found"));
+        }
+    }
+    let pool_db = data_pool::pool_path(&pools_dir(&app)?, &pool_id);
+    let ai = state.inner().clone();
+    let app_progress = app.clone();
+
+    let report = tokio::task::spawn_blocking(move || -> AppResult<Report> {
+        let engine = ai.get_or_init()?;
+        let schema = capture_schema(&pool_db)?;
+        let (title, metrics): (String, Vec<String>) = if let Some(t) = template.as_deref() {
+            let (title, m) = report::template_metrics(t)
+                .ok_or_else(|| AppError::validation("unknown report template"))?;
+            (title.to_string(), m.into_iter().map(str::to_string).collect())
+        } else if let Some(r) = request.as_deref() {
+            (r.to_string(), report::derive_metrics(&engine, &schema, r)?)
+        } else {
+            return Err(AppError::validation("provide a template or a request"));
+        };
+        report::generate_report(&engine, &pool_db, &schema, &title, &metrics, |step| {
+            let _ = app_progress.emit("report:progress", ReportProgress { step: step.to_string() });
+        })
+    })
+    .await
+    .map_err(|e| AppError::inference(format!("report task failed: {e}")))??;
+
+    Ok(report)
 }
 
 // ── Data pools ───────────────────────────────────────────────────────────────

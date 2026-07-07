@@ -141,16 +141,25 @@ pub fn narrate(engine: &InferenceEngine, question: &str, result: &QueryResult) -
          Answer in plain English using ONLY the figures in the result above. Every value you \
          state MUST appear in the result. Do not add analysis and do not show SQL.\n\nAnswer:"
     );
-    // Reasoning models (Qwen3.5) spend tokens in <think> blocks — prefill an empty block so
-    // the whole budget goes to the answer; strip as a fallback.
-    let params = GenerationParams { temperature: 0.3, max_tokens: 512, ..Default::default() };
-    let raw = engine.generate(&with_think_prefill(engine, prompt), &params, |_| {})?;
-    let text = strip_reasoning(&raw);
+    let text = generate_clean(engine, &prompt, 0.3, 512)?;
     if text.is_empty() {
         Ok("Here's what your data shows.".to_string())
     } else {
         Ok(text)
     }
+}
+
+/// Run a generation with the qwen think-prefill applied and `<think>` reasoning stripped —
+/// shared by narration and the report writer.
+pub(crate) fn generate_clean(
+    engine: &InferenceEngine,
+    prompt: &str,
+    temperature: f32,
+    max_tokens: u32,
+) -> AppResult<String> {
+    let params = GenerationParams { temperature, max_tokens, ..Default::default() };
+    let raw = engine.generate(&with_think_prefill(engine, prompt.to_string()), &params, |_| {})?;
+    Ok(strip_reasoning(&raw))
 }
 
 /// Remove `<think>…</think>` reasoning blocks that hybrid models (Qwen3.5) emit. Models put

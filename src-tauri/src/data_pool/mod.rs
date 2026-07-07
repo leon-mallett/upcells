@@ -14,6 +14,7 @@ use std::path::{Path, PathBuf};
 
 pub mod import;
 pub mod query;
+pub mod report;
 pub mod safety;
 pub mod schema;
 

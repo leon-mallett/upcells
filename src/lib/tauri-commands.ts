@@ -677,3 +677,33 @@ export const askDataPool = (args: {
     question: args.question,
     history: args.history,
   });
+
+export interface ReportMetric {
+  question: string;
+  sql: string;
+  columns: string[];
+  rows: string[][];
+}
+
+export interface Report {
+  title: string;
+  narrative: string;
+  metrics: ReportMetric[];
+}
+
+/** Payload of `report:progress` events while a report is generated. */
+export interface ReportProgress {
+  step: string;
+}
+
+/** Generate a report over a pool — from a template id or a freeform request. */
+export const generateReport = (args: {
+  pool_id: string;
+  template?: string;
+  request?: string;
+}): Promise<Report> =>
+  invoke("generate_report", {
+    poolId: args.pool_id,
+    template: args.template ?? null,
+    request: args.request ?? null,
+  });
