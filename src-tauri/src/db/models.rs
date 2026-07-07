@@ -12,6 +12,17 @@ pub struct DataPool {
     pub created_at: i64,
 }
 
+/// Metadata for a knowledge source (an ingested document/URL for prospecting RAG).
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct KnowledgeSource {
+    pub id: String,
+    pub name: String,
+    pub kind: String,
+    pub location: Option<String>,
+    pub chunk_count: i64,
+    pub created_at: i64,
+}
+
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Connection {
     pub id: String,

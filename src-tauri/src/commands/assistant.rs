@@ -38,7 +38,7 @@ pub struct AiState {
 
 impl AiState {
     /// Get the engine, initialising the backend on first use.
-    fn get_or_init(&self) -> AppResult<Arc<InferenceEngine>> {
+    pub(crate) fn get_or_init(&self) -> AppResult<Arc<InferenceEngine>> {
         let mut guard = self
             .engine
             .lock()
@@ -52,7 +52,7 @@ impl AiState {
     }
 
     /// The engine if already initialised (does not init — used by cancel).
-    fn current(&self) -> Option<Arc<InferenceEngine>> {
+    pub(crate) fn current(&self) -> Option<Arc<InferenceEngine>> {
         self.engine.lock().ok().and_then(|g| g.clone())
     }
 }

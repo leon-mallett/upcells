@@ -89,6 +89,12 @@ pub fn run() {
             commands::delete_data_pool,
             commands::ask_data_pool,
             commands::generate_report,
+            // Knowledge base (RAG / prospecting)
+            commands::add_knowledge_file,
+            commands::add_knowledge_url,
+            commands::list_knowledge_sources,
+            commands::delete_knowledge_source,
+            commands::write_prospecting,
         ])
         .run(tauri::generate_context!())
         .expect("error while running Upcells");

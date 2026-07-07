@@ -101,7 +101,8 @@ src/
 - [x] `sqlite-vec` vector store: registered at startup (auto-extension), migration 003 (knowledge_sources + knowledge_chunks + vec0 `vec_chunks`); `knowledge::store` (insert_chunk / delete_source_chunks / KNN search via CTE). Verified nearest-neighbour retrieval.
 - [x] Chunking (`knowledge::chunk`, word-based greedy w/ overlap) + file extractors (`knowledge::extract` — PDF via pdf-extract, DOCX via docx-rs paragraphs, TXT/MD direct). Tested.
 - [x] Single-page web extractor (`extract_url` — reqwest + dom_smoothie readability + robots.txt honoured) + ingestion (`knowledge::ingest`: embed_chunks → store_source in one txn; embedding done before the DB lock) + retrieval (`retrieve`: embed query → KNN). Verified end-to-end vs real nomic (product query retrieves the product source, not the policy).
-- [ ] Commands (ensure embedding model downloaded/loaded; add file/url source; list/delete sources; prospecting generation) + prospecting UI in the Assistant (grounded content with citations)
+- [x] Commands (`commands::knowledge`): `ensure_embedding_model` (auto-downloads/loads nomic on first use), `add_knowledge_file`/`add_knowledge_url` (progress on `knowledge:progress`), `list`/`delete_knowledge_source`, `write_prospecting` (retrieve → grounded draft + citations). Builds clean.
+- [ ] Prospecting UI in the Assistant (manage sources + a prospecting mode; grounded draft with citations)
 - [ ] Polite crawler (reqwest + scraper + robotstxt); reranker as **reorderer only**, never a filter
 
 ## Open items / risks

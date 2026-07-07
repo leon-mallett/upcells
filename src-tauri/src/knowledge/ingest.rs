@@ -27,7 +27,7 @@ pub fn embed_chunks(
     Ok(out)
 }
 
-/// Write a source and its embedded chunks in a single transaction.
+/// Write a source and its embedded chunks in a single transaction. Returns the created-at ts.
 pub fn store_source(
     conn: &Connection,
     source_id: &str,
@@ -35,7 +35,7 @@ pub fn store_source(
     kind: &str,
     location: Option<&str>,
     chunks: &[(String, Vec<f32>)],
-) -> AppResult<()> {
+) -> AppResult<i64> {
     let created_at = chrono::Utc::now().timestamp();
     let tx = conn
         .unchecked_transaction()
@@ -54,7 +54,7 @@ pub fn store_source(
     }
     tx.commit()
         .map_err(|e| AppError::db(format!("failed to commit: {e}")))?;
-    Ok(())
+    Ok(created_at)
 }
 
 /// Embed a query and return the `k` most relevant chunks across all sources.
