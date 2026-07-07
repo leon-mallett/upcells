@@ -95,9 +95,12 @@ src/
 ### Phase 3 — Coaching / strategy
 - [ ] Lightweight persona chat
 
-### Phase 4 — Semantic RAG + prospecting + web import (only if indexing unstructured docs)
-- [ ] `sqlite-vec` + `nomic-embed-text-v1.5` (768d, L2-normalised)
-- [ ] Chunking (512/64, tiktoken sizing), extractors (pdf/docx/md/html via dom_smoothie)
+### Phase 4 — Semantic RAG + prospecting + web import (scope: files + single-page web, in the Assistant)
+- [x] Deps vetted + added (2026-07-07): `sqlite-vec` 0.1.9, `pdf-extract` 0.12, `docx-rs` 0.4, `dom_smoothie` 0.18, `robotstxt` 0.3 (all MIT/Apache, no RUSTSEC). Web scoped to single-page (no `scraper` crawler). Full stack builds clean.
+- [x] Embeddings: `engine.embed()` via llama-cpp-2 embedding mode (nomic-embed, mean-pooled, 768d, L2-normalised); warm embedding slot separate from chat. Verified vs real nomic: sim(related)=0.72 > sim(unrelated)=0.35.
+- [ ] `sqlite-vec` vector store (vec0 table, registered at startup) + knowledge-base schema (documents + chunks)
+- [ ] Chunking + extractors (pdf/docx/txt/md; single-page web via reqwest + dom_smoothie + robotstxt)
+- [ ] Retrieval (embed query → MATCH → top-k) + prospecting generation grounded in passages (citations)
 - [ ] Polite crawler (reqwest + scraper + robotstxt); reranker as **reorderer only**, never a filter
 
 ## Open items / risks
