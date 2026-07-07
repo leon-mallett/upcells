@@ -32,6 +32,7 @@ import {
 } from "@/hooks/useAssistant";
 import { useSalesAccelerator } from "@/hooks/useLicense";
 import ProspectingPanel from "@/components/assistant/ProspectingPanel";
+import CoachPanel from "@/components/assistant/CoachPanel";
 import type { PoolAnswer, Report, ReportProgress } from "@/lib/tauri-commands";
 
 type QaTurn = { kind: "qa"; question: string; answer: PoolAnswer | null };
@@ -76,7 +77,7 @@ function AssistantFeature() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [reportMode, setReportMode] = useState(false);
   const [reportStep, setReportStep] = useState<string | null>(null);
-  const [view, setView] = useState<"chat" | "prospecting">("chat");
+  const [view, setView] = useState<"chat" | "prospecting" | "coaching">("chat");
 
   const modelReady = !!activeModel.data;
   const busy = ask.isPending || report.isPending;
@@ -149,6 +150,11 @@ function AssistantFeature() {
               onClick={() => setView("prospecting")}
               label="Prospecting"
             />
+            <ViewTab
+              active={view === "coaching"}
+              onClick={() => setView("coaching")}
+              label="Coach"
+            />
           </div>
         )}
 
@@ -172,6 +178,8 @@ function AssistantFeature() {
           <div className="flex-1">
             <ProspectingPanel />
           </div>
+        ) : view === "coaching" ? (
+          <CoachPanel />
         ) : poolList.length === 0 ? (
           <Card>
             <CardHeader className="pb-3">

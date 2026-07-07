@@ -750,3 +750,13 @@ export const deleteKnowledgeSource = (sourceId: string): Promise<void> =>
 
 export const writeProspecting = (brief: string): Promise<ProspectingResult> =>
   invoke("write_prospecting", { brief });
+
+// ── Coaching / strategy chat ──────────────────────────────────────────────────
+
+export interface CoachTurn {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export const coach = (args: { message: string; history: CoachTurn[] }): Promise<string> =>
+  invoke("coach", { message: args.message, history: args.history });

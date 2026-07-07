@@ -93,7 +93,7 @@ src/
 - [ ] Enhancements: streaming the narrative (`on_token`), markdown rendering (react-markdown), export/save.
 
 ### Phase 3 — Coaching / strategy
-- [ ] Lightweight persona chat
+- [x] Coaching chat: `coach` command (sales-coach persona system prompt + conversation history → `generate_clean`) and a `CoachPanel` (freeform chat with idea starters). Third Assistant view: "Ask & report | Prospecting | Coach". No data/retrieval — pure conversation. Builds clean.
 
 ### Phase 4 — Semantic RAG + prospecting + web import (scope: files + single-page web, in the Assistant)
 - [x] Deps vetted + added (2026-07-07): `sqlite-vec` 0.1.9, `pdf-extract` 0.12, `docx-rs` 0.4, `dom_smoothie` 0.18, `robotstxt` 0.3 (all MIT/Apache, no RUSTSEC). Web scoped to single-page (no `scraper` crawler). Full stack builds clean.

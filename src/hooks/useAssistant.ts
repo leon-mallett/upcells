@@ -4,6 +4,7 @@ import {
   addKnowledgeFile,
   addKnowledgeUrl,
   askDataPool,
+  coach,
   createDataPool,
   createDataPoolFromResults,
   deleteDataPool,
@@ -159,6 +160,14 @@ export function useWriteProspecting() {
   return useMutation({
     mutationFn: (brief: string) => writeProspecting(brief),
     onError: (e) => toast.error(`Couldn't write that: ${errMsg(e)}`),
+  });
+}
+
+export function useCoach() {
+  return useMutation({
+    mutationFn: (args: { message: string; history: { role: "user" | "assistant"; content: string }[] }) =>
+      coach(args),
+    onError: (e) => toast.error(`Coach unavailable: ${errMsg(e)}`),
   });
 }
 

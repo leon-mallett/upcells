@@ -7,11 +7,11 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, State};
 
 use crate::data_pool::import::{import_csv, import_rows, import_xlsx};
-use crate::data_pool::query::{answer_question, narrate, PriorTurn};
+use crate::data_pool::query::{answer_question, generate_clean, narrate, PriorTurn};
 use crate::data_pool::report::{self, Report};
 use crate::data_pool::schema::capture_schema;
 use crate::data_pool::{self};
@@ -200,6 +200,47 @@ pub fn cancel_ai_generation(state: State<'_, Arc<AiState>>) {
 #[tauri::command]
 pub fn get_active_ai_model(state: State<'_, Arc<AiState>>) -> Option<String> {
     state.current().and_then(|engine| engine.loaded_model_id())
+}
+
+/// One coaching turn (role = "user" | "assistant").
+#[derive(Debug, Clone, Deserialize)]
+pub struct CoachTurn {
+    pub role: String,
+    pub content: String,
+}
+
+const COACH_SYSTEM: &str = "You are an upbeat, practical sales coach helping a salesperson. Be \
+    encouraging and specific: offer concrete strategies, next steps, and motivation. Keep replies \
+    concise. Don't invent facts about their specific deals or numbers unless they tell you.";
+
+/// A coaching / strategy chat turn — freeform conversation with a sales-coach persona (no data
+/// or document retrieval). Requires a chat model to be active.
+#[tauri::command]
+pub async fn coach(
+    state: State<'_, Arc<AiState>>,
+    message: String,
+    history: Vec<CoachTurn>,
+) -> Result<String, AppError> {
+    let ai = state.inner().clone();
+    let reply = tokio::task::spawn_blocking(move || -> AppResult<String> {
+        let engine = ai.get_or_init()?;
+        let mut prompt = String::from(COACH_SYSTEM);
+        prompt.push_str("\n\n");
+        for turn in &history {
+            let who = if turn.role == "assistant" { "Coach" } else { "Salesperson" };
+            prompt.push_str(&format!("{who}: {}\n", turn.content));
+        }
+        prompt.push_str(&format!("Salesperson: {message}\nCoach:"));
+        let reply = generate_clean(&engine, &prompt, 0.7, 512)?;
+        Ok(if reply.trim().is_empty() {
+            "Let me think about that — could you give me a bit more detail?".to_string()
+        } else {
+            reply
+        })
+    })
+    .await
+    .map_err(|e| AppError::inference(format!("coach task failed: {e}")))??;
+    Ok(reply)
 }
 
 /// Progress payload emitted on the `report:progress` event while a report is generated.
