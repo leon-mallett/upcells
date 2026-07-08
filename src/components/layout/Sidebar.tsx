@@ -2,7 +2,6 @@ import { Link } from "@tanstack/react-router";
 import {
   Database,
   Upload,
-  History,
   Settings,
   LayoutDashboard,
   ShieldCheck,
@@ -60,9 +59,6 @@ export default function Sidebar() {
           {salesAccelerator && (
             <SimpleNavLink to="/assistant" icon={Sparkles} label="Assistant" />
           )}
-
-          {/* History */}
-          <SimpleNavLink to="/history" icon={History} label="History" />
 
           {/* Admin (visible only when enabled in Settings) */}
           {adminEnabled && (

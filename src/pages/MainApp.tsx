@@ -10,7 +10,6 @@ import AppShell from "@/components/layout/AppShell";
 import DashboardPage from "./DashboardPage";
 import SalesDataPage from "./SalesDataPage";
 import ImportPage from "./ImportPage";
-import HistoryPage from "./HistoryPage";
 import AdminPage from "./AdminPage";
 import AssistantPage from "./AssistantPage";
 import SettingsPage from "./SettingsPage";
@@ -40,8 +39,9 @@ const dataRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/data",
   component: SalesDataPage,
-  validateSearch: (search: Record<string, unknown>): { q?: string } => ({
+  validateSearch: (search: Record<string, unknown>): { q?: string; tab?: string } => ({
     q: typeof search.q === "string" ? search.q : undefined,
+    tab: typeof search.tab === "string" ? search.tab : undefined,
   }),
 });
 
@@ -49,12 +49,6 @@ const updateRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/update",
   component: ImportPage,
-});
-
-const historyRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/history",
-  component: HistoryPage,
 });
 
 const adminRoute = createRoute({
@@ -80,7 +74,6 @@ const routeTree = rootRoute.addChildren([
   dashboardRoute,
   dataRoute,
   updateRoute,
-  historyRoute,
   adminRoute,
   assistantRoute,
   settingsRoute,

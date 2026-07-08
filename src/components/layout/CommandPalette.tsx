@@ -59,9 +59,9 @@ export default function CommandPalette() {
   // ── Build items ───────────────────────────────────────────────────────────
   const items: PaletteItem[] = [
     { id: "nav-dashboard", label: "Dashboard", category: "Navigate", icon: LayoutDashboard, action: () => navigate({ to: "/dashboard" }) },
-    { id: "nav-data", label: "Data", category: "Navigate", icon: Database, action: () => navigate({ to: "/data", search: {} }) },
+    { id: "nav-data", label: "Sales Data", category: "Navigate", icon: Database, action: () => navigate({ to: "/data", search: {} }) },
     { id: "nav-update", label: "Update CRM", category: "Navigate", icon: Upload, action: () => navigate({ to: "/update" }) },
-    { id: "nav-history", label: "History", category: "Navigate", icon: History, action: () => navigate({ to: "/history" }) },
+    { id: "nav-history", label: "History", category: "Navigate", icon: History, action: () => navigate({ to: "/data", search: { tab: "history" } }) },
     { id: "nav-settings", label: "Settings", category: "Navigate", icon: Settings, action: () => navigate({ to: "/settings" }) },
     ...(adminEnabled
       ? [{ id: "nav-admin", label: "Admin", category: "Navigate" as const, icon: ShieldCheck, action: () => navigate({ to: "/admin" }) }]

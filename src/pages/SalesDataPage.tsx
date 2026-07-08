@@ -7,6 +7,7 @@ import {
   Plus,
   Upload,
   FileText,
+  History,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,18 +15,26 @@ import { useSavedQueries } from "@/hooks/useQueries";
 import { useDataPools } from "@/hooks/useAssistant";
 import { useSalesAccelerator } from "@/hooks/useLicense";
 import QueriesPage from "./QueriesPage";
+import HistoryPage from "./HistoryPage";
 import DataPoolsPanel from "@/components/assistant/DataPoolsPanel";
 
-type View = "overview" | "query" | "pools";
+type View = "overview" | "query" | "pools" | "history";
+
+const TABS: readonly View[] = ["overview", "query", "pools", "history"];
 
 /** The Sales Data hub: an Overview landing (quick actions, saved queries, data pools) with the
  *  query builder and data-pool management one click away. */
 export default function SalesDataPage() {
-  const search = useSearch({ strict: false }) as { q?: string };
+  const search = useSearch({ strict: false }) as { q?: string; tab?: string };
   const navigate = useNavigate();
   const salesAccelerator = useSalesAccelerator();
-  // A saved-query deep link (?q=…) or reload lands straight on the builder.
-  const [tab, setTab] = useState<View>(search.q ? "query" : "overview");
+  // Deep links select the tab (?tab=history) or the query builder (?q=…); else Overview.
+  const initialTab: View = TABS.includes(search.tab as View)
+    ? (search.tab as View)
+    : search.q
+      ? "query"
+      : "overview";
+  const [tab, setTab] = useState<View>(initialTab);
 
   function openSavedQuery(id: string) {
     navigate({ to: "/data", search: { q: id } });
@@ -59,6 +68,12 @@ export default function SalesDataPage() {
             label="Data Pools"
           />
         )}
+        <TabButton
+          active={tab === "history"}
+          onClick={() => setTab("history")}
+          icon={History}
+          label="History"
+        />
       </div>
       <div className="min-h-0 flex-1">
         {tab === "overview" && (
@@ -69,6 +84,7 @@ export default function SalesDataPage() {
           />
         )}
         {tab === "query" && <QueriesPage />}
+        {tab === "history" && <HistoryPage />}
         {tab === "pools" && salesAccelerator && (
           <div className="h-full overflow-y-auto p-6">
             <div className="mx-auto max-w-3xl">
