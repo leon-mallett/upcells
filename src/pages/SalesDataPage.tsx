@@ -175,7 +175,7 @@ function SalesDataOverview({
                   Manage
                 </button>
                 <Link to="/assistant" className="text-primary hover:underline">
-                  Ask in Assistant →
+                  Ask in Accelerator →
                 </Link>
               </div>
             </div>

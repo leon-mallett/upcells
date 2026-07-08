@@ -57,7 +57,7 @@ export default function Sidebar() {
 
           {/* Sales Accelerator (local AI) — only for licences with the tier */}
           {salesAccelerator && (
-            <SimpleNavLink to="/assistant" icon={Sparkles} label="Assistant" />
+            <SimpleNavLink to="/assistant" icon={Sparkles} label="Accelerator" />
           )}
 
           {/* Admin (visible only when enabled in Settings) */}

@@ -899,7 +899,7 @@ export default function QueriesPage() {
                   className="h-7 text-xs"
                   onClick={saveAsDataPool}
                   disabled={savePool.isPending}
-                  title="Save these results as a data pool to ask the Assistant about"
+                  title="Save these results as a data pool to ask the Accelerator about"
                 >
                   {savePool.isPending ? (
                     <Loader2 className="h-3 w-3 animate-spin" />

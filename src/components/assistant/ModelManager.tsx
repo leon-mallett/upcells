@@ -136,7 +136,7 @@ export default function ModelManager() {
         </Button>
         {activeModelId && (
           <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <Cpu className="h-3.5 w-3.5" /> Active model ready for the Assistant.
+            <Cpu className="h-3.5 w-3.5" /> Active model ready for the Accelerator.
           </span>
         )}
       </div>

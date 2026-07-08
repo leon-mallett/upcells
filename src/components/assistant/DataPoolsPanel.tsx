@@ -31,7 +31,7 @@ export default function DataPoolsPanel() {
             <Database className="h-4 w-4" /> Data pools
           </h2>
           <p className="text-xs text-muted-foreground">
-            The Assistant answers questions about these. The main way to create one is to run a
+            The Accelerator answers questions about these. The main way to create one is to run a
             query in <span className="font-medium">Query CRM</span> and choose{" "}
             <span className="font-medium">Save as Data Pool</span>. You can also import a file.
           </p>

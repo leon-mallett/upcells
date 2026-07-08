@@ -165,7 +165,7 @@ function AssistantFeature() {
                 <Cpu className="h-4 w-4" /> Set up your AI model
               </CardTitle>
               <CardDescription>
-                Choose and download a local AI model to power the assistant.
+                Choose and download a local AI model to power the Accelerator.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -480,7 +480,7 @@ function AssistantUpsell() {
           </p>
           <p>
             Your current licence doesn't include this tier. Contact us to upgrade and unlock the
-            Assistant.
+            Accelerator.
           </p>
         </CardContent>
       </Card>

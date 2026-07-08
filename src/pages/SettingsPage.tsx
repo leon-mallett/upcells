@@ -60,7 +60,7 @@ type SettingsTab =
 const tabs: { id: SettingsTab; label: string; icon: typeof Cable }[] = [
   { id: "orgs", label: "Salesforce Orgs", icon: Cable },
   { id: "queries", label: "Saved Queries", icon: FileText },
-  { id: "assistant", label: "AI Assistant", icon: Sparkles },
+  { id: "assistant", label: "Accelerator", icon: Sparkles },
   { id: "preferences", label: "Preferences", icon: SlidersHorizontal },
   { id: "license", label: "License", icon: KeyRound },
   { id: "about", label: "About", icon: Info },
@@ -405,7 +405,7 @@ function AiAssistantTab() {
         <div>
           <h2 className="text-sm font-semibold">Local AI model</h2>
           <p className="text-xs text-muted-foreground">
-            Powers the Sales Accelerator assistant. Models run entirely on your machine —
+            Powers the Sales Accelerator. Models run entirely on your machine —
             your data never leaves your device.
           </p>
         </div>
